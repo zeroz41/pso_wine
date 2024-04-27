@@ -1,0 +1,9 @@
+pso/logs
+pso/logs/*
+pso/linux/reticle.txt
+pso/android/reticle.txt
+pso/bin/Ephinea_PSOBB_Installer.exe
+pso/bin/ephinea_installer_temp.exe
+*.tmp
+pso/pc/reticle.txt
+Ephinea_PSOBB_Installer*
