@@ -15,9 +15,7 @@ This setup could easily enable simple, user input-free installation and uninstal
 
 The installer relies on the user's native system-installed Wine, ensuring compatibility with any modern Wine version without requiring custom versions.
 
-No additional tools like dgVoodoo, winetricks The Wine prefix is set to `~/.local/share/ephinea-prefix` by default.
-
-The game supports DirectX 8, DirectX 9, and Vulkan renderers.
+No additional tools like dgVoodoo, winetricks are needed. The Wine prefix is set to `~/.local/share/ephinea-prefix` by default.
 
 ### Usage
 - To install: `python pso.py -i`
