@@ -8,6 +8,11 @@ import pty
 import errno
 import select
 
+from os_helper import install_shortcuts, uninstall_shortcuts
+
+#does remove wine-mono
+
+
 #zeroz41
 
 def run_command(command):
@@ -74,6 +79,8 @@ def install_ephinea(shortcuts=False):
     if exit_code != 0:
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
+    
+    install_shortcuts()
     print("Installation completed successfully!")
 
 def uninstall_ephinea():
@@ -103,7 +110,9 @@ def uninstall_ephinea():
     # Remove the custom prefix directory
     if os.path.exists(prefix_dir):
         shutil.rmtree(prefix_dir)
+    uninstall_shortcuts()
     print("Uninstallation completed successfully!")
+    
 
 def execute_ephinea(launcher=False):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
@@ -133,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall Ephinea")
     parser.add_argument("-e", "--execute", action="store_true", help="Execute Ephinea")
     parser.add_argument("-l", "--launcher", action="store_true", help="Launch Ephinea with the launcher")
-    parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
+    parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with WINE desktop and application shortcuts") #dont use this for pc native. #debug only
 
     args = parser.parse_args()
 
