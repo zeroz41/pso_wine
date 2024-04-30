@@ -234,14 +234,14 @@ goto :eof
 
 :create_wanted_shortcuts
 set "profile_path=%USERPROFILE%"
-call :create_shortcut "Ephinea Launcher" "%install_dir%\online.exe" "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea Launcher.lnk"
-call :create_shortcut "Ephinea PSOBB" "%install_dir%\PsoBB.exe" "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB.lnk"
 
 ::desktop icons...enable for android install likely. 
 ::defaults to off. would put them on linux host as well. 
 if %desktop_shortcuts% equ 1 (
     call :create_shortcut "Ephinea Launcher" "%install_dir%\online.exe" "%profile_path%\Desktop\Ephinea Launcher.lnk"
     call :create_shortcut "Ephinea PSOBB" "%install_dir%\PsoBB.exe" "%profile_path%\Desktop\Ephinea PSOBB.lnk"
+    call :create_shortcut "Ephinea Launcher" "%install_dir%\online.exe" "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea Launcher.lnk"
+    call :create_shortcut "Ephinea PSOBB" "%install_dir%\PsoBB.exe" "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB.lnk"
 )
 
 goto :eof
