@@ -31,7 +31,7 @@ def set_wine_prefix():
         # Initialize the new Wine prefix
         subprocess.run(["winecfg", "/v", "win7"])
 
-def install_ephinea(shortcuts=False):
+def install_ephinea(shortcuts=False, dxvk=False):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
     if not os.path.exists(pso_bat_path):
         print(f"Error: pso.bat script not found at {pso_bat_path}")
@@ -49,9 +49,30 @@ def install_ephinea(shortcuts=False):
     command = ["wine", pso_bat_path, "-i"]
     
     print(f"Command: {' '.join(command)}")
+<<<<<<< HEAD
     subprocess.run(command)
     
     install_shortcuts()
+=======
+    exit_code = run_command(command)
+    print(f"Installer finished with exit code: {exit_code}")
+    if exit_code != 0:
+        print(f"Installation failed with exit code {exit_code}")
+        sys.exit(1)
+
+    # Install DXVK if requested
+    if dxvk:
+        print("Installing DXVK...")
+        winetricks_command = ["wine", "winetricks", "-q", "dxvk"]
+        print(f"Command: {' '.join(winetricks_command)}")
+        exit_code = run_command(winetricks_command)
+        print(f"Winetricks finished with exit code: {exit_code}")
+        if exit_code != 0:
+            print(f"DXVK installation failed with exit code {exit_code}")
+            sys.exit(1)
+        print("DXVK installation completed successfully!")
+
+>>>>>>> feature/dxvk
     print("Installation completed successfully!")
 
 def uninstall_ephinea():
@@ -106,14 +127,19 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall Ephinea")
     parser.add_argument("-e", "--execute", action="store_true", help="Execute Ephinea")
     parser.add_argument("-l", "--launcher", action="store_true", help="Launch Ephinea with the launcher")
+<<<<<<< HEAD
     parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with WINE desktop and application shortcuts") #dont use this for pc native. #debug only
+=======
+    parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
+    parser.add_argument("-x", "--dxvk", action="store_true", help="Install DXVK during Ephinea installation")
+>>>>>>> feature/dxvk
 
     args = parser.parse_args()
 
     if args.uninstall:
         uninstall_ephinea()
     elif args.install:
-        install_ephinea(shortcuts=args.shortcuts)
+        install_ephinea(shortcuts=args.shortcuts, dxvk=args.dxvk)
     elif args.execute:
         execute_ephinea(launcher=args.launcher)
     else:
