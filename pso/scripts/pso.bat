@@ -147,6 +147,7 @@ if %execute% equ 1 (
 echo.
 echo Script execution completed...
 ::pause >nul
+exit /b
 goto end
 
 ::FUNCTIONS BELOW. END MAIN SCRIPT ABOVE
