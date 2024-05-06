@@ -211,6 +211,9 @@ echo "!installer_path!" /S /D=!install_dir!
 
 echo Installation completed.
 
+call :save_icon "%install_dir%\online.exe" "%install_dir%\online.ico"
+call :save_icon "%install_dir%\PsoBB.exe" "%install_dir%\PsoBB.ico"
+
 call :remove_unwanted_shortcuts
 call :create_wanted_shortcuts
 
@@ -253,6 +256,8 @@ echo Profile path is %USERPROFILE%
 ::this removes ALL. which is why it is called before install wanted.
 ::it is recalled on uninstall
 call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Launch Ephinea PSOBB.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Readme.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Uninstall Ephinea.lnk"
 call :remove_shortcut "%profile_path%\Desktop\Ephinea.lnk"
 call :remove_shortcut "%profile_path%\Desktop\Ephinea Launcher.lnk"
 call :remove_shortcut "%profile_path%\Desktop\Ephinea Launcherlink.lnk"
@@ -264,15 +269,37 @@ call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea Launcherlink.l
 call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea PSOBB.lnk"
 call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea Readme.lnk"
 call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea Readmelink.lnk"
-call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea.lnk"
-call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea Launcherlink.lnk"
-call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB.lnk"
-call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea Readme.lnk"
-call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea Readmelink.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Ephinea.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Ephinea Launcherlink.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Ephinea PSOBB.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Ephinea Readme.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Ephinea Readmelink.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Readme.lnk"
+call :remove_shortcut "%profile_path%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Ephinea PSOBB\Uninstall Ephinea.lnk"
 call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea Launcher.lnk"
 call :remove_shortcut "%profile_path%\Start Menu\Programs\Ephinea PSOBB.lnk"
 call :remove_shortcut "%profile_path%\Desktop\Ephinea Launcher.lnk"
 call :remove_shortcut "%profile_path%\Desktop\Ephinea PSOBB.lnk"
+goto :eof
+
+:save_icon
+set "exe_path=%~1"
+set "icon_path=%~2"
+
+echo Saving icon from %exe_path% to %icon_path%
+
+:: Extract the icon using iconsext.exe
+call "%bin_dir%\iconsext.exe" /save "%exe_path%" "%install_dir%" -icons
+
+:: Check if the specific icon file was extracted successfully
+echo Checking for "%install_dir%\%~n1_*.ico"
+if exist "%install_dir%\%~n1_*.ico" (
+    move "%install_dir%\%~n1_*.ico" "%icon_path%" >nul
+    echo Icon saved successfully: %icon_path%
+) else (
+    echo Failed to extract icon from %exe_path%
+)
+
 goto :eof
 
 :uninstall_ephinea
@@ -294,6 +321,7 @@ goto :eof
 set "shortcut_path=%~1"
 
 if exist "%shortcut_path%" (
+    echo Removing shortcut %shortcut_path%
     del "%shortcut_path%"
 )
 

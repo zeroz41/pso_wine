@@ -4,43 +4,19 @@ import platform
 import sys
 import argparse
 import shutil
-import pty
-import errno
-import select
 
 from os_helper import install_shortcuts, uninstall_shortcuts
 
-#does remove wine-mono
+#does need wine-mono
 
 
 #zeroz41
 
-def run_command(command):
-    master_fd, slave_fd = pty.openpty()
-    process = subprocess.Popen(command, stdout=slave_fd, stderr=slave_fd, close_fds=True)
-    os.close(slave_fd)
-
-    while True:
-        try:
-            ready, _, _ = select.select([master_fd], [], [], 1)
-            if ready:
-                data = os.read(master_fd, 1024).decode('utf-8', 'ignore')
-                if not data:
-                    break
-                print(data, end='', flush=True)
-            elif process.poll() is not None:
-                break
-        except OSError as e:
-            if e.errno != errno.EIO:
-                print(f"Error: {e}", file=sys.stderr)
-                break
-
-    process.wait()
-    os.close(master_fd)
-    exit_code = process.returncode
-    if exit_code is None:
-        exit_code = 1  # Set a default exit code if it's None
-    return exit_code
+def get_installed_path():
+    # Implement the logic to determine the PSO installation directory
+    # This can be based on the registry entry or other methods
+    install_dir = "~/.local/share/ephinea-prefix\drive_c\EphineaPSO"
+    return install_dir
 
 def set_wine_prefix():
     prefix_dir = os.path.expanduser("~/.local/share/ephinea-prefix")
@@ -53,7 +29,7 @@ def set_wine_prefix():
     # Check if the prefix is already initialized
     if not os.path.exists(os.path.join(prefix_dir, "system.reg")):
         # Initialize the new Wine prefix
-        run_command(["winecfg", "/v", "win7"])
+        subprocess.run(["winecfg", "/v", "win7"])
 
 def install_ephinea(shortcuts=False):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
@@ -71,14 +47,9 @@ def install_ephinea(shortcuts=False):
 
     print("Installing Ephinea...")
     command = ["wine", pso_bat_path, "-i"]
-    if shortcuts:
-        command.append("-s")
+    
     print(f"Command: {' '.join(command)}")
-    exit_code = run_command(command)
-    print(f"Installer finished with exit code: {exit_code}")
-    if exit_code != 0:
-        print(f"Installation failed with exit code {exit_code}")
-        sys.exit(1)
+    subprocess.run(command)
     
     install_shortcuts()
     print("Installation completed successfully!")
@@ -100,11 +71,7 @@ def uninstall_ephinea():
     print("Uninstalling Ephinea...")
     command = ["wine", pso_bat_path, "-u"]
     print(f"Command: {' '.join(command)}")
-    exit_code = run_command(command)
-    print(f"Uninstaller finished with exit code: {exit_code}")
-    if exit_code != 0:
-        print(f"Uninstallation failed with exit code {exit_code}")
-        sys.exit(1)
+    subprocess.run(command)
 
     prefix_dir = os.path.expanduser("~/.local/share/ephinea-prefix")
     # Remove the custom prefix directory
@@ -115,26 +82,23 @@ def uninstall_ephinea():
     
 
 def execute_ephinea(launcher=False):
-    pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
-    if not os.path.exists(pso_bat_path):
-        print(f"Error: pso.bat script not found at {pso_bat_path}")
-        sys.exit(1)
-
-    try:
-        subprocess.check_output(["wine", "--version"])
-    except FileNotFoundError:
-        print("Error: Wine is not installed or not accessible from the command line.")
-        sys.exit(1)
-
+    pso_install_dir = os.path.expanduser("~/.local/share/ephinea-prefix/drive_c/EphineaPSO")
+    
     set_wine_prefix()
 
     print("Executing Ephinea...")
-    command = ["wine", pso_bat_path, "-e"]
     if launcher:
-        command.append("-l")
-    print(f"Command: {' '.join(command)}")
-    exit_code = run_command(command)
-    print(f"Execution finished with exit code: {exit_code}")
+        wine_executable = os.path.join(pso_install_dir, "online.exe")
+    else:
+        wine_executable = os.path.join(pso_install_dir, "PsoBB.exe")
+    
+    print(f"Launching: {wine_executable}")
+    try:
+        subprocess.call(f"wine '{wine_executable}'", shell=True)
+    except KeyboardInterrupt:
+        print("\nExecution interrupted by the user.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ephinea installer script")
@@ -146,7 +110,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    #if platform.system() == "Linux":
     if args.uninstall:
         uninstall_ephinea()
     elif args.install:
@@ -155,5 +118,3 @@ if __name__ == "__main__":
         execute_ephinea(launcher=args.launcher)
     else:
         print("No action specified. Please use -i or --install to install, -u or --uninstall to uninstall, or -e or --execute to execute. Add -l flag with e to open launcher")
-#else:
-#    print("This installer is intended for Linux systems only.")
