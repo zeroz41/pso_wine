@@ -55,6 +55,7 @@ def install_macos_shortcuts():
     applications_dir = "/Applications"
     pso_install_dir = os.path.expanduser("~/.local/share/ephinea-prefix/drive_c/EphineaPSO")
     pso_script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pso.py")
+    pso_script_dir = os.path.dirname(pso_script_path)
 
     shortcuts = [
         {"name": "Ephinea Launcher", "exec": f"python {pso_script_path} -e -l", "icon": "online.ico"},
@@ -82,12 +83,25 @@ def install_macos_shortcuts():
     <string>{shortcut["icon"].replace(".ico", ".icns")}</string>
     <key>CFBundleIdentifier</key>
     <string>com.ephinea.{shortcut["name"].lower().replace(" ", "")}</string>
+    <key>CFBundleName</key>
+    <string>{shortcut["name"]}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2023 Ephinea</string>
 </dict>
 </plist>
 """)
 
         with open(os.path.join(app_bundle_path, "Contents", "MacOS", shortcut["name"]), "w") as file:
-            file.write(f'#!/bin/bash\n{shortcut["exec"]}')
+            file.write(f"""#!/bin/bash
+cd "{pso_script_dir}"
+{shortcut["exec"]}
+""")
         os.chmod(os.path.join(app_bundle_path, "Contents", "MacOS", shortcut["name"]), 0o755)
 
 def uninstall_shortcuts():
