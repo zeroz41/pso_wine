@@ -19,41 +19,48 @@ def install_ephinea(shortcuts=False):
         sys.exit(1)
 
     print("Installing Ephinea...")
-    command = ["wine", pso_bat_path, "-i"]
+    # Modified to use cmd /c to execute the batch file
+    command = ["wine", "cmd", "/c", pso_bat_path, "-i"]
     if shortcuts:
         command.append("-s")
+    
     print(f"Command: {' '.join(command)}")
     exit_code = wine.run_command(command)
     print(f"Installer finished with exit code: {exit_code}")
+    
     if exit_code != 0:
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
+    
     print("Installation completed successfully!")
 
 def uninstall_ephinea():
-    pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
-    if not os.path.exists(pso_bat_path):
-        print(f"Error: pso.bat script not found at {pso_bat_path}")
-        sys.exit(1)
-
     wine = WineUtils()
-    try:
-        wine.setup_prefix()
-    except WineSetupError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
 
-    print("Uninstalling Ephinea...")
-    command = ["wine", pso_bat_path, "-u"]
-    print(f"Command: {' '.join(command)}")
-    exit_code = wine.run_command(command)
-    print(f"Uninstaller finished with exit code: {exit_code}")
-    if exit_code != 0:
-        print(f"Uninstallation failed with exit code {exit_code}")
-        sys.exit(1)
+    # Only try to run the uninstaller if the prefix actually exists
+    if os.path.exists(wine.prefix_path):
+        if wine.check_wine_installed():
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            pso_bat_path = os.path.normpath(os.path.join(script_dir, "scripts", "pso.bat"))
+            
+            if os.path.exists(pso_bat_path):
+                print("Uninstalling Ephinea...")
+                command = ["wine", "cmd", "/c", pso_bat_path, "-u"]
+                print(f"Command: {' '.join(command)}")
+                exit_code = wine.run_command(command)
+                print(f"Uninstaller finished with exit code: {exit_code}")
+                if exit_code != 0:
+                    print(f"Warning: Uninstaller exited with code {exit_code}, continuing with prefix cleanup...")
+            else:
+                print(f"Warning: pso.bat script not found at {pso_bat_path}, skipping wine uninstall...")
+        else:
+            print("Warning: Wine is not installed, skipping wine uninstall...")
 
-    wine.cleanup_prefix()
-    print("Uninstallation completed successfully!")
+        # Clean up the prefix directory if it exists
+        wine.cleanup_prefix()
+        print("Uninstallation completed successfully!")
+    else:
+        print("Nothing to uninstall - prefix directory doesn't exist.")
 
 def execute_ephinea(launcher=False):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
@@ -69,7 +76,7 @@ def execute_ephinea(launcher=False):
         sys.exit(1)
 
     print("Executing Ephinea...")
-    command = ["wine", pso_bat_path, "-e"]
+    command = ["wine", "cmd", "/c", pso_bat_path, "-e"]
     if launcher:
         command.append("-l")
     print(f"Command: {' '.join(command)}")
