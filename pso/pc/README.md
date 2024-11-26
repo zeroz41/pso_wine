@@ -8,6 +8,9 @@ The installer creates PSO Launcher and PSOBB executable files within the Wine pr
 
 This setup could easily enable simple, user input-free installation and uninstallation using desktop packaging tools such as apt or pacman (yay, paru).
 
+### Requirements
+- python >=3.6
+
 ### Installation
 1. Download the repository.
 2. Place the `Ephinea_PSOBB_Installer.exe` file in the `bin` folder of the repository. If you don't have the installer file, the script will automatically download it for you.
@@ -20,5 +23,9 @@ No additional tools like dgVoodoo, winetricks are needed. The Wine prefix is set
 ### Usage
 - To install: `python pso.py -i`
 - To uninstall: `python pso.py -u`
+
+- Running the launcher at least once is required to update the game usually. Settings menus also exist here.
+- To run the launcher via cmdline `python pso.py -el`
+- To only run the blue burst exe (the actual game) `python pso.py -e`
 
 Note: If you don't have the `Ephinea_PSOBB_Installer.exe` file in the `bin` folder, the script will automatically download it during the installation process. The downloaded installer will be saved in the `bin` folder for future use.
