@@ -299,8 +299,8 @@ class WineUtils:
             return False
 
     def _verify_mono_installation(self):
-        """Verify Mono installation by checking files and registry"""
-        # First check if system Mono is installed
+        """Verify Mono installation by checking essential registry entries and DLLs"""
+        # Keep existing system Mono check logic
         if self.check_system_mono():
             print("System Mono installation detected, skipping Wine Mono version check")
             
@@ -330,72 +330,52 @@ class WineUtils:
                     
             print("No Mono registry entries found even with system Mono")
             return False
-        
-        # If no system Mono, do the full verification
+
+        # Basic verification for Wine Mono
         print("No system Mono detected, performing full Wine Mono verification...")
         
-        # these are the main Mono directories and files
-        critical_paths = [
-            os.path.join(self.prefix_path, "drive_c/windows/Microsoft.NET"),
-            os.path.join(self.prefix_path, "drive_c/windows/mono"),
-            os.path.join(self.prefix_path, "drive_c/Program Files/Mono"),
-        ]
-        
-        files_exist = any(os.path.exists(path) for path in critical_paths)  # if any exist
-        if not files_exist:
-            print("No Mono directories found in expected locations:")
-            for path in critical_paths:
-                print(f"  {'✓' if os.path.exists(path) else '✗'} {path}")
-            return False
-        
-        # Check registry entries for Mono
-        registry_keys = [
-            "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full",
-            "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Client",
-            "HKLM\\Software\\Mono",
-        ]
-        
-        registry_found = False
-        for key in registry_keys:
-            try:
-                reg_result = subprocess.run(
-                    ["wine", "reg", "query", key],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                if reg_result.returncode == 0:
-                    print(f"Found Mono registry entry: {key}")
-                    print(f"Registry output:\n{reg_result.stdout}")
-                    registry_found = True
-                    break
-            except Exception as e:
-                print(f"Error checking registry key {key}: {e}")
-                continue
-        
-        if not registry_found:
-            print("No Mono registry entries found")
-            return False
-            
-        # see if mono works or not
+        # Check .NET Framework registry key
+        reg_key = "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full"
         try:
-            test_result = subprocess.run(
-                ["wine", "mono", "--version"],
+            reg_result = subprocess.run(
+                ["wine", "reg", "query", reg_key],
                 env=self.env,
                 capture_output=True,
                 text=True,
                 timeout=10
             )
-            if test_result.returncode == 0:
-                print(f"Mono test successful:\n{test_result.stdout}")
-            else:
-                print("Mono version check failed")
+            if reg_result.returncode != 0 or "Install    REG_DWORD    0x1" not in reg_result.stdout:
+                print("Required registry entries not found")
                 return False
+            print(f"Found registry key: {reg_key}")
+            print(f"Registry output:\n{reg_result.stdout}")
         except Exception as e:
-            print(f"Error testing mono command: {e}")
+            print(f"Error checking registry: {e}")
             return False
+
+        # Search for mscorlib.dll in v4.x folders
+        framework_path = os.path.join(self.prefix_path, "drive_c/windows/Microsoft.NET/Framework")
+        found_valid_dll = False
+        min_dll_size = 100000  # Minimum size in bytes for a valid mscorlib.dll
         
+        if os.path.exists(framework_path):
+            # Look through all version folders
+            for folder in os.listdir(framework_path):
+                if folder.startswith('v4.'):  # Only check v4.x folders
+                    dll_path = os.path.join(framework_path, folder, "mscorlib.dll")
+                    if os.path.exists(dll_path):
+                        dll_size = os.path.getsize(dll_path)
+                        if dll_size >= min_dll_size:
+                            found_valid_dll = True
+                            print(f"Found valid mscorlib.dll in {folder} (size: {dll_size:,} bytes)")
+                            break
+                        else:
+                            print(f"Found mscorlib.dll in {folder} but size is too small: {dll_size:,} bytes")
+
+        if not found_valid_dll:
+            print("Could not find a valid mscorlib.dll in any v4.x Framework folder")
+            return False
+
         return True
 
     def check_prefix_mono(self):
