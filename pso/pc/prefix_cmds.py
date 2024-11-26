@@ -10,10 +10,9 @@ import shutil
 import time
 import signal
 from contextlib import contextmanager
+import tarfile
 
 # made by zeroz - tj
-
-#todo fix win7 config
 
 class WineSetupError(Exception):
     """Custom exception for Wine setup errors"""
@@ -324,7 +323,7 @@ class WineUtils:
                     if reg_result.returncode == 0:
                         print(f"Found Mono registry entry: {key}")
                         print(f"Registry output:\n{reg_result.stdout}")
-                        return True  # If we find any valid registry entry with system Mono, we're good
+                        return True  # found mono key
                 except Exception as e:
                     print(f"Error checking registry key {key}: {e}")
                     continue
@@ -335,14 +334,14 @@ class WineUtils:
         # If no system Mono, do the full verification
         print("No system Mono detected, performing full Wine Mono verification...")
         
-        # Check critical paths - these are the main Mono directories and files
+        # these are the main Mono directories and files
         critical_paths = [
             os.path.join(self.prefix_path, "drive_c/windows/Microsoft.NET"),
             os.path.join(self.prefix_path, "drive_c/windows/mono"),
             os.path.join(self.prefix_path, "drive_c/Program Files/Mono"),
         ]
         
-        files_exist = any(os.path.exists(path) for path in critical_paths)  # Only need one of these to exist
+        files_exist = any(os.path.exists(path) for path in critical_paths)  # if any exist
         if not files_exist:
             print("No Mono directories found in expected locations:")
             for path in critical_paths:
@@ -379,7 +378,7 @@ class WineUtils:
             print("No Mono registry entries found")
             return False
             
-        # Check if mono is actually working by trying to run a simple test
+        # see if mono works or not
         try:
             test_result = subprocess.run(
                 ["wine", "mono", "--version"],
@@ -491,7 +490,7 @@ class WineUtils:
 
                 print(f"Installing Wine Gecko ({gecko_filename})...")
                 
-                # Try installing with more verbose output and different switches
+                # gecko attempts. first should work
                 install_commands = [
                     ["wine", "msiexec", "/i", gecko_path, "/l*v", f"{cache_dir}/gecko_install_{gecko_filename}.log"],
                     ["wine", "msiexec", "/i", gecko_path, "/qn"],  # Silent install
@@ -503,7 +502,7 @@ class WineUtils:
                     print(f"Trying installation command: {' '.join(cmd)}")
                     exit_code = self.run_command(cmd, timeout=None)
                     
-                    # After each attempt, verify the files exist
+                    # verify the files exist
                     if self._verify_gecko_installation():
                         success = True
                         break
@@ -554,10 +553,10 @@ class WineUtils:
                 print(f"Error checking registry: {e}")
                 return False
         
-        # If no system Gecko or basic verification failed, do full verification
+        # If no system Gecko...verify
         print("Performing full Wine Gecko verification...")
         
-        # Check critical paths for both 32-bit and 64-bit Gecko
+        # check both 32-bit and 64-bit Gecko
         critical_paths = [
             os.path.join(self.prefix_path, "drive_c/windows/system32/gecko"),
             os.path.join(self.prefix_path, "drive_c/windows/syswow64/gecko"),
@@ -565,7 +564,7 @@ class WineUtils:
             os.path.join(self.prefix_path, "drive_c/windows/syswow64/mshtml.dll")
         ]
         
-        # For Gecko, we want to check which specific files exist
+        # gecko files exist?
         print("Checking Gecko files:")
         for path in critical_paths:
             exists = os.path.exists(path)
@@ -579,7 +578,7 @@ class WineUtils:
             print("Missing required Gecko files")
             return False
             
-        # Check various registry entries that should exist with Gecko
+        # Check registry entries for gecko
         registry_keys = [
             "HKLM\\Software\\Wine\\MSHTML",
             "HKLM\\Software\\Microsoft\\Internet Explorer",
@@ -608,7 +607,7 @@ class WineUtils:
             print("No Gecko registry entries found")
             return False
         
-        # Additional check: Try to verify mshtml.dll is properly registered
+        # Try to verify mshtml.dll is properly registered
         try:
             regsvr_result = subprocess.run(
                 ["wine", "regsvr32", "/s", "mshtml.dll"],
@@ -624,10 +623,10 @@ class WineUtils:
         
         return True
 
-    def setup_prefix(self):
+    def setup_prefix(self, install_dxvk=True):
         """Set up and configure the Wine prefix with all requirements"""
-        #temp do not suppress to ensure mono and gecko stuff works
-        #self.suppress_gui()
+        #comment out below line if needed. temp do not suppress to ensure mono and gecko stuff works
+        self.suppress_gui()
         if not self.check_wine_installed():
             raise WineSetupError("Wine is not installed or not accessible from the command line.")
 
@@ -682,6 +681,275 @@ class WineUtils:
                 print("  Fedora: sudo dnf install wine-gecko")
                 return False
 
+        # Handle DXVK installation
+        if install_dxvk:
+            if self.check_prefix_dxvk():
+                print("DXVK is already installed in the prefix.")
+            elif self.check_system_dxvk():
+                print("System-wide DXVK installation detected.")
+            else:
+                print("No DXVK installation found. Installing in prefix...")
+                if not self.install_dxvk():
+                    print("Warning: Failed to install DXVK. Graphics performance might not be optimal.")
+                    print("You may need to install DXVK using your system's package manager:")
+                    print("  Debian/Ubuntu: sudo apt install dxvk")
+                    print("  Arch Linux: yay -S dxvk-bin")
+                    print("  Fedora: sudo dnf install dxvk")
+                    return False
+        else:
+            print("Skipping DXVK installation as per user request")
+
+        print("All components installed successfully!")
+        return True
+    
+    def check_system_dxvk(self):
+        """Check if DXVK is installed system-wide"""
+        possible_paths = [
+            "/usr/share/dxvk",
+            "/usr/lib/dxvk",
+            "/usr/local/share/dxvk",
+        ]
+        
+        # Check package managers
+        package_managers = {
+            "dpkg": "dxvk",
+            "pacman": "dxvk-bin",
+            "rpm": "dxvk",
+        }
+        
+        for pm, package in package_managers.items():
+            try:
+                if pm == "dpkg":
+                    result = subprocess.run(["dpkg", "-s", package], 
+                                        capture_output=True, 
+                                        timeout=10)
+                    if result.returncode == 0:
+                        return True
+                elif pm == "pacman":
+                    result = subprocess.run(["pacman", "-Qi", package], 
+                                        capture_output=True, 
+                                        timeout=10)
+                    if result.returncode == 0:
+                        return True
+                elif pm == "rpm":
+                    result = subprocess.run(["rpm", "-q", package], 
+                                        capture_output=True, 
+                                        timeout=10)
+                    if result.returncode == 0:
+                        return True
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                continue
+
+        # Check system paths
+        return any(pathlib.Path(path).exists() for path in possible_paths)
+
+    def install_dxvk(self):
+        """Download and install DXVK in the prefix"""
+        DEV_MODE = True
+        cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        os.makedirs(cache_dir, exist_ok=True)
+
+        # If system DXVK is available, we just need to set up the prefix configuration
+        if self.check_system_dxvk():
+            print("System DXVK detected, configuring prefix to use it...")
+            # Set DLL overrides
+            override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi"]
+            for dll in override_dlls:
+                self.run_command([
+                    "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
+                    "/v", dll, "/d", "native,builtin", "/f"
+                ], timeout=10)
+            
+            if self._verify_dxvk_installation():
+                print("System DXVK configured successfully!")
+                return True
+            print("Failed to configure system DXVK, falling back to manual installation...")
+
+        # Manual installation from GitHub
+        try:
+            dxvk_version = "2.3"  # Latest stable as of writing
+            dxvk_filename = f"dxvk-{dxvk_version}.tar.gz"
+            dxvk_url = f"https://github.com/doitsujin/dxvk/releases/download/v{dxvk_version}/{dxvk_filename}"
+            dxvk_path = os.path.join(cache_dir, dxvk_filename)
+
+            print(f"Installing DXVK {dxvk_version} from GitHub...")
+            
+            # Download and verify archive
+            have_valid_archive = os.path.exists(dxvk_path) and os.path.getsize(dxvk_path) >= 1024
+            if DEV_MODE and have_valid_archive:
+                print(f"Using existing DXVK archive at {dxvk_path}")
+            else:
+                if have_valid_archive:
+                    os.remove(dxvk_path)
+                if not self.download_file(dxvk_url, dxvk_path):
+                    raise Exception("Failed to download DXVK archive")
+
+            # Extract and install DXVK
+            print("Extracting DXVK...")
+            extract_dir = os.path.join(cache_dir, f"dxvk-{dxvk_version}")
+            if os.path.exists(extract_dir):
+                shutil.rmtree(extract_dir)
+                
+            with tarfile.open(dxvk_path, "r:gz") as tar:
+                tar.extractall(cache_dir)
+
+            # Install the DLLs
+            dll_paths = {
+                "x32": os.path.join(extract_dir, "x32"),
+                "x64": os.path.join(extract_dir, "x64")
+            }
+
+            for arch, dll_dir in dll_paths.items():
+                if os.path.exists(dll_dir):
+                    for dll in ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]:
+                        dll_path = os.path.join(dll_dir, dll)
+                        if os.path.exists(dll_path):
+                            target_dir = os.path.join(self.prefix_path, 
+                                                    "drive_c/windows/system32" if arch == "x64" else "drive_c/windows/syswow64")
+                            os.makedirs(target_dir, exist_ok=True)
+                            shutil.copy2(dll_path, target_dir)
+                            print(f"Installed {dll} to {target_dir}")
+
+            # Set DLL overrides
+            override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi"]
+            for dll in override_dlls:
+                self.run_command([
+                    "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
+                    "/v", dll, "/d", "native,builtin", "/f"
+                ], timeout=10)
+
+            if self._verify_dxvk_installation():
+                print("DXVK installation completed and verified successfully!")
+                return True
+                
+            raise Exception("DXVK installation verification failed")
+
+        except Exception as e:
+            print(f"Manual DXVK installation failed: {e}")
+            print("Attempting fallback installation via winetricks...")
+            
+            # Fallback to winetricks if manual installation fails
+            if self._install_dxvk_winetricks():
+                if self._verify_dxvk_installation():
+                    print("DXVK installation completed successfully via winetricks!")
+                    return True
+                
+            print("All DXVK installation methods failed")
+            return False
+
+    def _install_dxvk_winetricks(self):
+        """Fallback method to install DXVK using winetricks"""
+        try:
+            # Check if winetricks is available
+            if shutil.which("winetricks") is None:
+                print("Winetricks not found, cannot attempt fallback installation")
+                return False
+
+            print("Attempting DXVK installation via winetricks...")
+            result = subprocess.run(
+                ["winetricks", "-q", "dxvk"],
+                env=self.env,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode == 0:
+                print("Winetricks DXVK installation completed")
+                return True
+            else:
+                print(f"Winetricks DXVK installation failed: {result.stderr}")
+                return False
+        except Exception as e:
+            print(f"Error during winetricks DXVK installation: {e}")
+            return False
+    
+    def check_prefix_dxvk(self):
+        """Check if DXVK is installed in the prefix"""
+        #add more custom stuff independent here if needed
+        return self._verify_dxvk_installation()
+
+    def _verify_dxvk_installation(self):
+        """Verify DXVK installation actually installed"""
+        # Check if system DXVK is available
+        if self.check_system_dxvk():
+            print("System DXVK installation detected, checking basic configuration...")
+            
+            # verify DLL overrides when system DXVK is present
+            try:
+                reg_result = subprocess.run(
+                    ["wine", "reg", "query", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides"],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if reg_result.returncode == 0 and any(dll in reg_result.stdout for dll in ["d3d9", "d3d11", "dxgi"]):
+                    print("Found DXVK DLL overrides in registry")
+                    print(f"Registry output:\n{reg_result.stdout}")
+                    return True
+            except Exception as e:
+                print(f"Error checking registry: {e}")
+                return False
+                
+        # full verification for non-system DXVK
+        print("Performing full DXVK verification...")
+        
+        # check DXVK DLLs in both 32-bit and 64-bit system directories
+        dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
+        dll_paths = {
+            "system32": os.path.join(self.prefix_path, "drive_c/windows/system32"),
+            "syswow64": os.path.join(self.prefix_path, "drive_c/windows/syswow64")
+        }
+        
+        print("Checking DXVK DLLs:")
+        all_dlls_present = True
+        for dir_name, dir_path in dll_paths.items():
+            for dll in dll_list:
+                dll_path = os.path.join(dir_path, dll)
+                exists = os.path.exists(dll_path)
+                print(f"  {'✓' if exists else '✗'} {dir_name}/{dll}")
+                if not exists:
+                    all_dlls_present = False
+                    
+        if not all_dlls_present:
+            print("Missing required DXVK DLLs")
+            return False
+                
+        # Check DLL overrides in registry
+        try:
+            reg_result = subprocess.run(
+                ["wine", "reg", "query", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides"],
+                env=self.env,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if reg_result.returncode == 0:
+                print("Found registry entries:")
+                print(reg_result.stdout)
+                
+                # More flexible verification of registry entries
+                required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi"}
+                found_dlls = set()
+                
+                for line in reg_result.stdout.splitlines():
+                    for dll in required_dlls:
+                        if dll in line.lower() and "native,builtin" in line.lower():
+                            found_dlls.add(dll)
+                
+                missing_dlls = required_dlls - found_dlls
+                if missing_dlls:
+                    print(f"Missing DLL overrides for: {', '.join(missing_dlls)}")
+                    return False
+            else:
+                print("Failed to query DLL overrides")
+                return False
+        except Exception as e:
+            print(f"Error checking DLL overrides: {e}")
+            return False
+
+        print("DXVK verification successful - all DLLs and registry entries present")
         return True
 
     def cleanup_prefix(self):

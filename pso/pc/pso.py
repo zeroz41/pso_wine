@@ -5,7 +5,7 @@ from prefix_cmds import WineUtils, WineSetupError
 
 # made by zeroz - tj
 
-def install_ephinea(shortcuts=False):
+def install_ephinea(shortcuts=False, install_dxvk=True):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
     if not os.path.exists(pso_bat_path):
         print(f"Error: pso.bat script not found at {pso_bat_path}")
@@ -13,7 +13,7 @@ def install_ephinea(shortcuts=False):
 
     wine = WineUtils()
     try:
-        wine.setup_prefix()
+        wine.setup_prefix(install_dxvk=install_dxvk)
     except WineSetupError as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -92,13 +92,14 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--execute", action="store_true", help="Execute Ephinea")
     parser.add_argument("-l", "--launcher", action="store_true", help="Launch Ephinea with the launcher. Use -el not just -l")
     parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
+    parser.add_argument("--no-dxvk", action="store_true", help="Skip DXVK installation")
 
     args = parser.parse_args()
 
     if args.uninstall:
         uninstall_ephinea()
     elif args.install:
-        install_ephinea(shortcuts=args.shortcuts)
+        install_ephinea(shortcuts=args.shortcuts, install_dxvk=not args.no_dxvk)
     elif args.execute:
         execute_ephinea(launcher=args.launcher)
     else:
