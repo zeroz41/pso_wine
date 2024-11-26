@@ -77,9 +77,12 @@ reg import "%sonicRegFile%"
 echo Registry files installed successfully!
 exit /b
 
+
+::dont use winecfg, pops up gui when running from some linux distros
 :configure_wine
 echo Setting the Windows version to Windows 7...
-winecfg -v win7
+reg add "HKEY_CURRENT_USER\Software\Wine\Version" /v "Windows" /d "win7" /f
+reg add "HKLM\System\CurrentControlSet\Control\Windows" /v "CSDVersion" /t REG_DWORD /d "256" /f
 echo Setting the dll override "d3d9" to native,builtin...
 reg add "HKCU\Software\Wine\DllOverrides" /v "d3d9" /t REG_SZ /d "native,builtin" /f
 exit /b

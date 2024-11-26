@@ -71,11 +71,14 @@ for %%a in (%*) do (
     )
 )
 
-if defined install (
+:: Only check for installer if installing
+if %install% equ 1 (
     if not defined installer_path (
         echo Installer path not provided. Trying default path...
         goto check_default_installer
     )
+) else (
+    goto continue
 )
 
 :check_default_installer

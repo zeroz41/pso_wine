@@ -63,16 +63,16 @@ def uninstall_ephinea():
         print("Nothing to uninstall - prefix directory doesn't exist.")
 
 def execute_ephinea(launcher=False):
+    wine = WineUtils()
+    
+    # Check if prefix exists first
+    if not os.path.exists(wine.prefix_path):
+        print("Error: Ephinea is not installed. Please install it first with -i")
+        sys.exit(1)
+
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
     if not os.path.exists(pso_bat_path):
         print(f"Error: pso.bat script not found at {pso_bat_path}")
-        sys.exit(1)
-
-    wine = WineUtils()
-    try:
-        wine.setup_prefix()
-    except WineSetupError as e:
-        print(f"Error: {e}")
         sys.exit(1)
 
     print("Executing Ephinea...")
