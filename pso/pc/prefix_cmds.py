@@ -637,7 +637,7 @@ class WineUtils:
             
             # Initialize the prefix with wineboot
             print("Running wineboot initialization...")
-            if self.run_command(["wineboot", "-u", "-i"], timeout=30) != 0:
+            if self.run_command(["wineboot", "-u", "-i"], timeout=60) != 0:
                 print("Warning: wineboot initialization may have failed")
                 time.sleep(2)  # Give it a moment to settle anyway
             
@@ -681,12 +681,18 @@ class WineUtils:
                 print("  Fedora: sudo dnf install wine-gecko")
                 return False
 
-        # Handle DXVK installation
         if install_dxvk:
             if self.check_prefix_dxvk():
                 print("DXVK is already installed in the prefix.")
             elif self.check_system_dxvk():
-                print("System-wide DXVK installation detected.")
+                print("System-wide DXVK installation detected, configuring prefix...")
+                if not self.install_dxvk():
+                    print("Warning: Failed to configure system DXVK.")
+                    print("You may need to install DXVK using your system's package manager:")
+                    print("  Debian/Ubuntu: sudo apt install dxvk")
+                    print("  Arch Linux: yay -S dxvk-bin")
+                    print("  Fedora: sudo dnf install dxvk")
+                    return False
             else:
                 print("No DXVK installation found. Installing in prefix...")
                 if not self.install_dxvk():
@@ -744,28 +750,53 @@ class WineUtils:
         return any(pathlib.Path(path).exists() for path in possible_paths)
 
     def install_dxvk(self):
-        """Download and install DXVK in the prefix"""
+        """Install DXVK in the prefix. Use system DXVK if available, otherwise download."""
         DEV_MODE = True
         cache_dir = os.path.expanduser("~/.cache/pso_wine")
         os.makedirs(cache_dir, exist_ok=True)
 
-        # If system DXVK is available, we just need to set up the prefix configuration
+        # If system DXVK is available, use system setup script
         if self.check_system_dxvk():
-            print("System DXVK detected, configuring prefix to use it...")
-            # Set DLL overrides
-            override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi"]
-            for dll in override_dlls:
-                self.run_command([
-                    "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
-                    "/v", dll, "/d", "native,builtin", "/f"
-                ], timeout=10)
+            print("System DXVK detected, attempting to configure prefix...")
             
-            if self._verify_dxvk_installation():
-                print("System DXVK configured successfully!")
-                return True
-            print("Failed to configure system DXVK, falling back to manual installation...")
+            # Common paths for dxvk setup script
+            setup_paths = [
+                "/usr/share/dxvk/setup_dxvk.sh",
+                "/usr/bin/setup_dxvk",
+                "/usr/local/bin/setup_dxvk"
+            ]
+            
+            setup_script = None
+            for path in setup_paths:
+                if os.path.exists(path):
+                    setup_script = path
+                    break
+            
+            if setup_script:
+                print(f"Found DXVK setup script at {setup_script}")
+                try:
+                    # Run the setup script with our prefix
+                    result = subprocess.run(
+                        [setup_script, "install"],
+                        env=self.env,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    
+                    if result.returncode == 0:
+                        print("System DXVK setup completed successfully!")
+                        return True
+                    print(f"DXVK setup script failed with error code {result.returncode}")
+                except Exception as e:
+                    print(f"Error running DXVK setup script: {e}")
+            else:
+                print("No system DXVK setup script found!")
 
-        # Manual installation from GitHub
+            print("System DXVK setup failed, falling back to manual installation...")
+                    
+
+        # Manual installation from GitHub if system DXVK isn't available or setup failed
         try:
             dxvk_version = "2.3"  # Latest stable as of writing
             dxvk_filename = f"dxvk-{dxvk_version}.tar.gz"
