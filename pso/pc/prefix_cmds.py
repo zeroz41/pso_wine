@@ -13,6 +13,8 @@ from contextlib import contextmanager
 
 # made by zeroz - tj
 
+#todo fix win7 config
+
 class WineSetupError(Exception):
     """Custom exception for Wine setup errors"""
     pass
@@ -311,16 +313,17 @@ class WineUtils:
             time.sleep(1)
             
             # Set up Windows version
-            print("Configuring Windows version...")
-            if self.run_command(["wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\Version", 
-                               "/v", "Windows", "/d", "win7", "/f"], timeout=30) != 0:
-                print("Warning: Failed to set Windows version")
+            print("SKIPPING WINDOWS 7 CONFIG STEPS, let pso.bat do it")
+            #print("Configuring Windows version...")
+            #if self.run_command(["wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\Version", 
+            #                   "/v", "Windows", "/d", "win7", "/f"], timeout=30) != 0:
+            #    print("Warning: Failed to set Windows version")
 
-            time.sleep(1)
-            
-            if self.run_command(["wine", "reg", "add", "HKLM\\System\\CurrentControlSet\\Control\\Windows",
-                               "/v", "CSDVersion", "/t", "REG_DWORD", "/d", "256", "/f"], timeout=30) != 0:
-                print("Warning: Failed to set CSDVersion")
+            #time.sleep(1)
+            #
+            #if self.run_command(["wine", "reg", "add", "HKLM\\System\\CurrentControlSet\\Control\\Windows",
+            #                   "/v", "CSDVersion", "/t", "REG_DWORD", "/d", "256", "/f"], timeout=30) != 0:
+            #    print("Warning: Failed to set CSDVersion")
             
             # Kill any lingering processes again
             subprocess.run(["wineserver", "-k"], env=self.env)
