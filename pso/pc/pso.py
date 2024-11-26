@@ -25,7 +25,8 @@ def install_ephinea(shortcuts=False):
         command.append("-s")
     
     print(f"Command: {' '.join(command)}")
-    exit_code = wine.run_command(command)
+    # Pass timeout=None to disable the timeout
+    exit_code = wine.run_command(command, timeout=None)
     print(f"Installer finished with exit code: {exit_code}")
     
     if exit_code != 0:
@@ -80,7 +81,8 @@ def execute_ephinea(launcher=False):
     if launcher:
         command.append("-l")
     print(f"Command: {' '.join(command)}")
-    exit_code = wine.run_command(command)
+    # Use execute_game instead of run_command
+    exit_code = wine.execute_game(command)
     print(f"Execution finished with exit code: {exit_code}")
 
 if __name__ == "__main__":
