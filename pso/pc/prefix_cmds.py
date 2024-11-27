@@ -331,6 +331,8 @@ class WineUtils:
             #return False
 
             #just return true; no extra veri needed or worth it.
+            # can make sure mono works by running dot net mcs compiled application.
+            # note: system wine-mono does not do the same as local wine installed. won't have mono on cmd for example
             return True
         
         # For non-system (MSI) installations, do full verification
