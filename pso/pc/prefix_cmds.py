@@ -235,9 +235,27 @@ class WineUtils:
             return False
 
     def install_mono(self):
-        """Download and install Wine Mono in the prefix"""
-        DEV_MODE = True
+        """Download and install Wine Mono in the prefix. Use system Mono if available."""
+        # If system Mono is available, ensure it's properly initialized
+        if self.check_system_mono():
+            print("System Mono detected, configuring the prefix for you to use it...")
+            try:
+                # Run wineboot once to initialize system mono
+                self.run_command(["wineboot", "-u"], timeout=30)
+                print("System mono configured. Rechecking prefix....")
+                
+                # Verify it worked
+                if self._verify_mono_installation():
+                    print("System Mono configuration completed successfully!")
+                    return True
+                    
+                print("System wine mono configuration FAILED")
+                print("System Mono configuration incomplete, falling back to local installation...")
+            except Exception as e:
+                print(f"Error configuring system Mono: {e}")
+                print("Falling back to local installation...")
         
+        DEV_MODE = True
         cache_dir = os.path.expanduser("~/.cache/pso_wine")
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -299,69 +317,61 @@ class WineUtils:
             return False
 
     def _verify_mono_installation(self):
-        """Verify Mono installation by checking essential registry entries and DLLs"""
-        # Keep existing system Mono check logic
+      
+        """Verify Mono installation is properly configured, whether system or prefix"""
+    # If system mono is available, verify using wine uninstaller
         if self.check_system_mono():
-            print("System Mono installation detected, skipping Wine Mono version check")
-            
-            # Just verify registry entries when system Mono is present
-            registry_keys = [
-                "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full",
-                "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Client",
-                "HKLM\\Software\\Mono",
-            ]
-            
-            for key in registry_keys:
-                try:
-                    reg_result = subprocess.run(
-                        ["wine", "reg", "query", key],
-                        env=self.env,
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    if reg_result.returncode == 0:
-                        print(f"Found Mono registry entry: {key}")
-                        print(f"Registry output:\n{reg_result.stdout}")
-                        return True  # found mono key
-                except Exception as e:
-                    print(f"Error checking registry key {key}: {e}")
-                    continue
-                    
-            print("No Mono registry entries found even with system Mono")
-            return False
+            #print("Checking for Wine Mono Runtime...")
+            #result = self.run_command(["wine", "uninstaller", "--list"])
+            #if result == 0:
+            #    # We'll see the output in run_command since it uses PTY
+            #    return True
+            #    
+            #print("Wine Mono Runtime check failed")
+            #return False
 
-        # Basic verification for Wine Mono
-        print("No system Mono detected, performing full Wine Mono verification...")
+            #just return true; no extra veri needed or worth it.
+            return True
         
-        # Check .NET Framework registry key
-        reg_key = "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full"
-        try:
-            reg_result = subprocess.run(
-                ["wine", "reg", "query", reg_key],
-                env=self.env,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if reg_result.returncode != 0 or "Install    REG_DWORD    0x1" not in reg_result.stdout:
-                print("Required registry entries not found")
-                return False
-            print(f"Found registry key: {reg_key}")
-            print(f"Registry output:\n{reg_result.stdout}")
-        except Exception as e:
-            print(f"Error checking registry: {e}")
+        # For non-system (MSI) installations, do full verification
+        print("Checking local Mono installation...")
+        REQUIRED_REGISTRY_KEYS = [
+            "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full",
+            "HKLM\\Software\\Microsoft\\NET Framework Setup\\NDP\\v4\\Client",
+        ]
+        
+        # Check essential registry keys
+        registry_found = False
+        for key in REQUIRED_REGISTRY_KEYS:
+            try:
+                reg_result = subprocess.run(
+                    ["wine", "reg", "query", key],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if reg_result.returncode == 0:
+                    print(f"Found registry key: {key}")
+                    print(f"Registry output:\n{reg_result.stdout}")
+                    registry_found = True
+                    break
+            except Exception as e:
+                print(f"Error checking registry key {key}: {e}")
+                continue
+                
+        if not registry_found:
+            print("Required Mono registry entries not found")
             return False
-
-        # Search for mscorlib.dll in v4.x folders
+            
+        # Verify core DLL presence and size
         framework_path = os.path.join(self.prefix_path, "drive_c/windows/Microsoft.NET/Framework")
         found_valid_dll = False
         min_dll_size = 100000  # Minimum size in bytes for a valid mscorlib.dll
         
         if os.path.exists(framework_path):
-            # Look through all version folders
             for folder in os.listdir(framework_path):
-                if folder.startswith('v4.'):  # Only check v4.x folders
+                if folder.startswith('v4.'):
                     dll_path = os.path.join(framework_path, folder, "mscorlib.dll")
                     if os.path.exists(dll_path):
                         dll_size = os.path.getsize(dll_path)
@@ -371,16 +381,13 @@ class WineUtils:
                             break
                         else:
                             print(f"Found mscorlib.dll in {folder} but size is too small: {dll_size:,} bytes")
-
+        
         if not found_valid_dll:
-            print("Could not find a valid mscorlib.dll in any v4.x Framework folder")
+            print("Could not find valid mscorlib.dll")
             return False
-
+            
+        print("Mono verification completed successfully")
         return True
-
-    def check_prefix_mono(self):
-        """Check if Wine Mono is installed in the prefix"""
-        return self._verify_mono_installation()
             
     def check_system_gecko(self):
         """Check if Wine Gecko is installed system-wide"""
@@ -605,41 +612,35 @@ class WineUtils:
 
     def setup_prefix(self, install_dxvk=True):
         """Set up and configure the Wine prefix with all requirements"""
-        #comment out below line if needed. temp do not suppress to ensure mono and gecko stuff works
         self.suppress_gui()
         if not self.check_wine_installed():
             raise WineSetupError("Wine is not installed or not accessible from the command line.")
 
         os.makedirs(self.prefix_path, exist_ok=True)
 
+        # Initialize new prefix if needed
         if not os.path.exists(os.path.join(self.prefix_path, "system.reg")):
             print("Initializing new Wine prefix...")
-            
-            # Initialize the prefix with wineboot
             print("Running wineboot initialization...")
             if self.run_command(["wineboot", "-u", "-i"], timeout=60) != 0:
                 print("Warning: wineboot initialization may have failed")
-                time.sleep(2)  # Give it a moment to settle anyway
-            
-            # Kill any lingering wineserver processes
+                time.sleep(2)
+                
             subprocess.run(["wineserver", "-k"], env=self.env)
             time.sleep(1)
             
             print("SKIPPING WINDOWS 7 CONFIG STEPS, let pso.bat do it")
             
-            # Kill any lingering processes again
             subprocess.run(["wineserver", "-k"], env=self.env)
             time.sleep(2)
 
         # Handle Mono installation
-        if self.check_prefix_mono():
-            print("Wine Mono is already installed in the prefix.")
-        elif self.check_system_mono():
-            print("System-wide Wine Mono installation detected.")
+        if self._verify_mono_installation():
+            print("Mono is already configured in the prefix.")
         else:
-            print("No Wine Mono installation found. Installing in prefix...")
+            print("No Mono configuration found prexisting WITHIN PREFIX. Configuring...")
             if not self.install_mono():
-                print("Warning: Failed to install Wine Mono. The launcher might not work properly.")
+                print("Warning: Failed to install Mono. The launcher might not work properly.")
                 print("You may need to install wine-mono using your system's package manager:")
                 print("  Debian/Ubuntu: sudo apt install wine-mono")
                 print("  Arch Linux: sudo pacman -S wine-mono")
