@@ -815,7 +815,7 @@ class WineUtils:
 
             for arch, dll_dir in dll_paths.items():
                 if os.path.exists(dll_dir):
-                    for dll in ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]:
+                    for dll in ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll", "d3d8"]:
                         dll_path = os.path.join(dll_dir, dll)
                         if os.path.exists(dll_path):
                             target_dir = os.path.join(self.prefix_path, 
@@ -825,11 +825,12 @@ class WineUtils:
                             print(f"Installed {dll} to {target_dir}")
 
             # Set DLL overrides
-            override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi"]
+            override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi", "d3d8"]
             for dll in override_dlls:
+                #d3d9 will get dummy slapped back to native,builtin later. but its intended
                 self.run_command([
                     "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
-                    "/v", dll, "/d", "native,builtin", "/f"
+                    "/v", dll, "/d", "native", "/f"
                 ], timeout=10)
 
             if self._verify_dxvk_installation():
