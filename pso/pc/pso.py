@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 from prefix_cmds import WineUtils, WineSetupError
+from shortcut_manager import ShortcutManager
 
 # made by zeroz - tj
 
@@ -22,7 +23,8 @@ def install_ephinea(shortcuts=False, install_dxvk=True):
     # Modified to use cmd /c to execute the batch file
     command = ["wine", "cmd", "/c", pso_bat_path, "-i"]
     if shortcuts:
-        command.append("-s")
+        #command.append("-s")
+        print("skipping passing shortcut arg to pso.bat")
     
     print(f"Command: {' '.join(command)}")
     # Pass timeout=None to disable the timeout
@@ -32,6 +34,11 @@ def install_ephinea(shortcuts=False, install_dxvk=True):
     if exit_code != 0:
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
+
+    if shortcuts:
+        print("Creating desktop shortcuts...")
+        shortcut_manager = ShortcutManager()
+        shortcut_manager.create_shortcuts()
     
     print("Installation completed successfully!")
 
@@ -58,7 +65,13 @@ def uninstall_ephinea():
             print("Warning: Wine is not installed, skipping wine uninstall...")
 
         # Clean up the prefix directory if it exists
+        print("Cleaning up and removing PSO wine prefix")
         wine.cleanup_prefix()
+
+        print("Removing all desktop shortcuts and icons")
+        shortcut_manager = ShortcutManager()
+        shortcut_manager.cleanup_shortcuts()
+
         print("Uninstallation completed successfully!")
     else:
         print("Nothing to uninstall - prefix directory doesn't exist.")

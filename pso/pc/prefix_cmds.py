@@ -11,6 +11,7 @@ import time
 import signal
 from contextlib import contextmanager
 import tarfile
+from cmd_runner import CommandRunner
 
 # made by zeroz - tj
 
@@ -18,35 +19,16 @@ class WineSetupError(Exception):
     """Custom exception for Wine setup errors"""
     pass
 
-class ProcessTimeoutError(Exception):
-    """Custom exception for process timeouts"""
-    pass
-
-@contextmanager
-def process_timeout(seconds):
-    """Context manager for timing out processes"""
-    def handle_timeout(signum, frame):
-        raise ProcessTimeoutError(f"Process timed out after {seconds} seconds")
-
-    # Set up the timeout
-    signal.signal(signal.SIGALRM, handle_timeout)
-    signal.alarm(seconds)
-
-    try:
-        yield
-    finally:
-        # Disable the alarm
-        signal.alarm(0)
-
-class WineUtils:
+class WineUtils(CommandRunner):
     def __init__(self, prefix_path="~/.local/share/ephinea-prefix"):
-        """Initialize WineUtils with a prefix path"""
         self.prefix_path = os.path.expanduser(prefix_path)
-        # Store complete original environment
         self.original_env = os.environ.copy()
         self.env = os.environ.copy()
         self.env["WINEPREFIX"] = self.prefix_path
         self.env["WINEDEBUG"] = "-all"
+    
+    def run_command(self, command, timeout=60):
+        return super().run_command(command, timeout, self.env)
         
     # hacky gui suppression methods. Allow us to not show windows when we want, like wine updating or install. WINE GUIS   
     # but its fun at least 
@@ -82,89 +64,6 @@ class WineUtils:
         self.enable_gui()
         return self.run_command(command, timeout=None)
 
-
-    def run_command(self, command, timeout=60):
-        """Run a command with PTY support and return exit code"""
-        print(f"Debug - Running command: {command}")
-        
-        def kill_process_tree(pid):
-            try:
-                parent = subprocess.Popen(['ps', '-o', 'pid', '--ppid', str(pid), '--noheaders'],
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                out, _ = parent.communicate()
-                
-                # Kill children first
-                for child_pid in out.split():
-                    if child_pid:
-                        try:
-                            os.kill(int(child_pid), signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
-
-                # Kill parent
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-            except Exception as e:
-                print(f"Error killing process tree: {e}")
-
-        master_fd, slave_fd = pty.openpty()
-        process = None
-        
-        try:
-            process = subprocess.Popen(
-                command,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                close_fds=True,
-                env=self.env,
-                preexec_fn=os.setsid  # Create new process group
-            )
-            os.close(slave_fd)
-            
-            start_time = time.time()
-            while True:
-                # Only check timeout if one was specified
-                if timeout is not None and time.time() - start_time > timeout:
-                    print(f"Command timed out after {timeout} seconds")
-                    if process:
-                        kill_process_tree(process.pid)
-                    return 1
-
-                try:
-                    ready, _, _ = select.select([master_fd], [], [], 1.0)
-                    if ready:
-                        try:
-                            data = os.read(master_fd, 1024).decode('utf-8', 'ignore')
-                            if not data:
-                                break
-                            print(data, end='', flush=True)
-                        except OSError as e:
-                            if e.errno != errno.EIO:
-                                raise
-                            break
-                    elif process.poll() is not None:
-                        break
-                except (select.error, OSError) as e:
-                    if process.poll() is not None:
-                        break
-                    print(f"Error during command execution: {e}")
-                    break
-
-            if process.poll() is None:
-                kill_process_tree(process.pid)
-                return 1
-
-            return process.returncode if process.returncode is not None else 1
-
-        except Exception as e:
-            print(f"Error during command execution: {e}")
-            if process:
-                kill_process_tree(process.pid)
-            return 1
-        finally:
-            os.close(master_fd)
 
     def check_wine_installed(self):
         """Check if Wine is installed on the system"""
@@ -619,6 +518,12 @@ class WineUtils:
             raise WineSetupError("Wine is not installed or not accessible from the command line.")
 
         os.makedirs(self.prefix_path, exist_ok=True)
+
+        #add windowing associate
+        self.run_command([
+        "wine", "reg", "add", "HKCU\\Software\\Wine\\X11 Driver",
+        "/v", "Managed", "/t", "REG_SZ", "/d", "Y", "/f"
+        ])
 
         # Initialize new prefix if needed
         if not os.path.exists(os.path.join(self.prefix_path, "system.reg")):
