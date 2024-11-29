@@ -39,11 +39,18 @@ def install_ephinea(shortcuts=False, install_dxvk=True):
         print("Creating desktop shortcuts...")
         shortcut_manager = ShortcutManager()
         shortcut_manager.create_shortcuts()
+        shortcut_manager.remove_wine_generated_shortcuts()
     
     print("Installation completed successfully!")
 
 def uninstall_ephinea():
     wine = WineUtils()
+
+    print("Removing all desktop shortcuts and icons")
+    shortcut_manager = ShortcutManager()
+    shortcut_manager.cleanup_shortcuts()
+    # in case they are back somehow  
+    shortcut_manager.remove_wine_generated_shortcuts()
 
     # Only try to run the uninstaller if the prefix actually exists
     if os.path.exists(wine.prefix_path):
@@ -67,10 +74,6 @@ def uninstall_ephinea():
         # Clean up the prefix directory if it exists
         print("Cleaning up and removing PSO wine prefix")
         wine.cleanup_prefix()
-
-        print("Removing all desktop shortcuts and icons")
-        shortcut_manager = ShortcutManager()
-        shortcut_manager.cleanup_shortcuts()
 
         print("Uninstallation completed successfully!")
     else:

@@ -49,6 +49,52 @@ class ShortcutManager(CommandRunner):
             self._create_linux_shortcuts()
         elif platform.system() == "Darwin":
             self._create_macos_shortcuts()
+
+    #removes any shortcuts that the ephinea installer may have made and pso.bat didnt cleanup
+    def remove_wine_generated_shortcuts(self):
+        if platform.system() == "Linux":
+            self._remove_linux_wine_shortcuts()
+        elif platform.system() == "Darwin":
+            self._remove_mac_wine_shortcuts()
+
+    def _remove_linux_wine_shortcuts(self):
+        wineicons_dir = os.path.expanduser("~/.local/share/applications/wine/Programs")
+        game_folder = os.path.join(wineicons_dir, "Ephinea PSOBB")
+        
+        # Remove the entire game folder if it exists
+        if os.path.exists(game_folder):
+            try:
+                shutil.rmtree(game_folder)
+            except Exception as e:
+                print(f"Warning: Failed to remove game folder {game_folder}: {e}")
+
+        # Update system caches
+        applications_dir = os.path.expanduser("~/.local/share/applications")
+        self.run_command(["update-desktop-database", applications_dir], timeout=10)
+        self.run_command(["gtk-update-icon-cache", self.local_icons_dir, "-f"], timeout=10)
+
+    def _remove_mac_wine_shortcuts(self):
+        wineicons_dir = os.path.expanduser("~/Applications/Wine")
+        game_folder = os.path.join(wineicons_dir, "Programs/Ephinea PSOBB")
+        
+        # Remove the entire game folder if it exists
+        if os.path.exists(game_folder):
+            try:
+                shutil.rmtree(game_folder)
+            except Exception as e:
+                print(f"Warning: Failed to remove game folder {game_folder}: {e}")
+
+    def _cleanup_macos_shortcuts(self):
+        applications_dir = os.path.expanduser("~/Applications")
+        
+        for name in ["Ephinea Launcher", "Ephinea PSOBB"]:
+            path = os.path.join(applications_dir, f"{name}.app")
+            if os.path.exists(path):
+                try:
+                    shutil.rmtree(path)
+                except Exception as e:
+                    print(f"Warning: Failed to remove {path}: {e}")
+
             
     def _create_linux_shortcuts(self):
         desktop_entry_template = """[Desktop Entry]
