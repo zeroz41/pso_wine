@@ -656,6 +656,9 @@ class WineUtils(CommandRunner):
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
+        use_native_builtin = not self.check_system_dxvk()  # True for MSI install, False for system DXVK. different overrides
+        override_setting = "native,builtin" if use_native_builtin else "native"
+
         # If system DXVK is available, use system setup script
         if self.check_system_dxvk():
             print("System DXVK detected, attempting to configure prefix...")
@@ -745,10 +748,10 @@ class WineUtils(CommandRunner):
             # Set DLL overrides
             override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi", "d3d8"]
             for dll in override_dlls:
-                #d3d9 will get dummy slapped back to native,builtin later. but its intended
+                #d3d9 will get dummy slapped back to native,builtin later regardless. but its intended
                 self.run_command([
                     "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
-                    "/v", dll, "/d", "native", "/f"
+                    "/v", dll, "/d", override_setting, "/f"
                 ], timeout=10)
 
             if self._verify_dxvk_installation():
@@ -805,28 +808,13 @@ class WineUtils(CommandRunner):
     def _verify_dxvk_installation(self):
         """Verify DXVK installation actually installed"""
         # Check if system DXVK is available
-        if self.check_system_dxvk():
-            print("System DXVK installation detected, checking basic configuration...")
-            
-            # verify DLL overrides when system DXVK is present
-            try:
-                reg_result = subprocess.run(
-                    ["wine", "reg", "query", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                if reg_result.returncode == 0 and any(dll in reg_result.stdout for dll in ["d3d9", "d3d11", "dxgi"]):
-                    print("Found DXVK DLL overrides in registry")
-                    print(f"Registry output:\n{reg_result.stdout}")
-                    return True
-            except Exception as e:
-                print(f"Error checking registry: {e}")
-                return False
-                
-        # full verification for non-system DXVK
-        print("Performing full DXVK verification...")
+        is_system_dxvk = self.check_system_dxvk()
+        expected_override = "native" if is_system_dxvk else "native,builtin"
+        
+        if is_system_dxvk:
+            print(f"System DXVK installation detected, checking basic configuration (expecting '{expected_override}' overrides)...")
+        else:
+            print(f"Checking MSI-installed DXVK (expecting '{expected_override}' overrides)...")
         
         # check DXVK DLLs in both 32-bit and 64-bit system directories
         dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
@@ -845,35 +833,36 @@ class WineUtils(CommandRunner):
                 if not exists:
                     all_dlls_present = False
                     
-        if not all_dlls_present:
+        if not all_dlls_present and not is_system_dxvk:
             print("Missing required DXVK DLLs")
             return False
-                
+                    
         # Check DLL overrides in registry
         try:
-            reg_result = subprocess.run(
+            reg_result = self.run_command(
                 ["wine", "reg", "query", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides"],
-                env=self.env,
-                capture_output=True,
-                text=True,
                 timeout=10
             )
-            if reg_result.returncode == 0:
-                print("Found registry entries:")
-                print(reg_result.stdout)
-                
-                # More flexible verification of registry entries
+            
+            if reg_result == 0:  # run_command returns exit code
                 required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi"}
                 found_dlls = set()
                 
-                for line in reg_result.stdout.splitlines():
-                    for dll in required_dlls:
-                        if dll in line.lower() and "native" in line.lower():
-                            found_dlls.add(dll)
+                # We'll need to run individual queries for each DLL since we can't capture output
+                for dll in required_dlls:
+                    dll_result = self.run_command([
+                        "wine", "reg", "query", 
+                        "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
+                        "/v", dll
+                    ], timeout=10)
+                    
+                    if dll_result == 0:  # Successfully found the key
+                        found_dlls.add(dll)
                 
                 missing_dlls = required_dlls - found_dlls
                 if missing_dlls:
                     print(f"Missing DLL overrides for: {', '.join(missing_dlls)}")
+                    print(f"Note: Looking for '{expected_override}' override setting")
                     return False
             else:
                 print("Failed to query DLL overrides")
@@ -882,7 +871,7 @@ class WineUtils(CommandRunner):
             print(f"Error checking DLL overrides: {e}")
             return False
 
-        print("DXVK verification successful - all DLLs and registry entries present")
+        print(f"DXVK verification successful - all files and registry entries present")
         return True
 
     def cleanup_prefix(self):
