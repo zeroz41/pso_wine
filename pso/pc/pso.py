@@ -6,7 +6,7 @@ from shortcut_manager import ShortcutManager
 
 # made by zeroz - tj
 
-def install_ephinea(shortcuts=False, install_dxvk=True):
+def install_ephinea(install_dxvk=True):
     pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
     if not os.path.exists(pso_bat_path):
         print(f"Error: pso.bat script not found at {pso_bat_path}")
@@ -20,14 +20,9 @@ def install_ephinea(shortcuts=False, install_dxvk=True):
         sys.exit(1)
 
     print("Installing Ephinea...")
-    # Modified to use cmd /c to execute the batch file
     command = ["wine", "cmd", "/c", pso_bat_path, "-i"]
-    if shortcuts:
-        #command.append("-s")
-        print("skipping passing shortcut arg to pso.bat")
     
     print(f"Command: {' '.join(command)}")
-    # Pass timeout=None to disable the timeout
     exit_code = wine.run_command(command, timeout=None)
     print(f"Installer finished with exit code: {exit_code}")
     
@@ -35,15 +30,21 @@ def install_ephinea(shortcuts=False, install_dxvk=True):
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
 
-    if shortcuts:
-        print("Creating desktop shortcuts...")
-        shortcut_manager = ShortcutManager()
-        shortcut_manager.create_shortcuts()
+    print("Creating desktop shortcuts...")
+    shortcut_manager = ShortcutManager()
+    shortcut_manager.create_shortcuts()
+    shortcut_manager.remove_wine_generated_shortcuts()
     
     print("Installation completed successfully!")
 
 def uninstall_ephinea():
     wine = WineUtils()
+
+    print("Removing all desktop shortcuts and icons")
+    shortcut_manager = ShortcutManager()
+    shortcut_manager.cleanup_shortcuts()
+    # in case they are back somehow  
+    shortcut_manager.remove_wine_generated_shortcuts()
 
     # Only try to run the uninstaller if the prefix actually exists
     if os.path.exists(wine.prefix_path):
@@ -68,21 +69,17 @@ def uninstall_ephinea():
         print("Cleaning up and removing PSO wine prefix")
         wine.cleanup_prefix()
 
-        print("Removing all desktop shortcuts and icons")
-        shortcut_manager = ShortcutManager()
-        shortcut_manager.cleanup_shortcuts()
-
         print("Uninstallation completed successfully!")
     else:
         print("Nothing to uninstall - prefix directory doesn't exist.")
 
 def execute_ephinea(launcher=False):
 
-    #must set wine ev before wineutils initialize
-    # could make a set env function in there or something 
-    if args.debug_d3d:
-        print("LAUNCHING GAME WITH NATIVE d3d9 DLL OVERRIDE. DEBUG MODE")
-        os.environ['WINEDLLOVERRIDES'] = "d3d9=n"  ##Niche use case. Debug mode only. Will likely cause dll error on psobb exe launch ;)
+    #must set wine env variables before wineutils initialize
+    if args.vm_no_graphics:
+        print("LAUNCHING IN VM COMPATIBILITY MODE (NO HARDWARE GRAPHICS)")
+        os.environ['WINEESYNC'] = "1"
+        os.environ['WINEDLLOVERRIDES'] = "dxvk_config=b;d3d9,d3d11,dxgi=b"
 
     wine = WineUtils()
     
@@ -106,23 +103,25 @@ def execute_ephinea(launcher=False):
     print(f"Execution finished with exit code: {exit_code}")
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description="Ephinea installer script")
     parser.add_argument("-i", "--install", action="store_true", help="Install Ephinea")
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall Ephinea")
-    parser.add_argument("-e", "--execute", action="store_true", help="Execute Ephinea")
-    parser.add_argument("-l", "--launcher", action="store_true", help="Launch Ephinea with the launcher")
-    parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
-    parser.add_argument("--no-dxvk", action="store_true", help="Skip DXVK installation")
-    parser.add_argument("--debug-d3d", action='store_true',
-                   help='Force native D3D9 ONLY for debug environments')
+    parser.add_argument("-e", "--execute", action="store_true", help="Start PSO Blue Burst")
+    parser.add_argument("-l", "--launcher", action="store_true", help="Start Ephinea Launcher")
+    parser.add_argument("--vm-no-graphics", action="store_true", 
+                       help="Run in VM compatibility mode without hardware graphics acceleration. Use with -e or -l")
+    parser.add_argument("--skip-dxvk", action="store_true", 
+                       help="Skip DXVK installation when installing (use DirectX instead)")
 
     args = parser.parse_args()
 
     if args.uninstall:
         uninstall_ephinea()
     elif args.install:
-        install_ephinea(shortcuts=args.shortcuts, install_dxvk=not args.no_dxvk)
+        install_ephinea(install_dxvk=not args.skip_dxvk)
     elif args.execute or args.launcher:
         execute_ephinea(launcher=args.launcher)
     else:
-        print("No action specified. Please use -i or --install to install, -u or --uninstall to uninstall, -e to execute the game, or -l to run the launcher.")
+        script_name = os.path.basename(sys.argv[0])
+        print(f"No action specified. Run with `python {script_name} -h` for help")
