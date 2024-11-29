@@ -18,30 +18,29 @@ class CommandRunner:
     def process_timeout(self, seconds):
         def handle_timeout(signum, frame):
             raise ProcessTimeoutError(f"Process timed out after {seconds} seconds")
-
+        
         signal.signal(signal.SIGALRM, handle_timeout)
         signal.alarm(seconds)
         try:
             yield
         finally:
             signal.alarm(0)
-
-    def run_command(self, command, timeout=60, env=None):
+            
+    def run_command(self, command, timeout=60, env=None, capture_output=False):
         print(f"Debug - Running command: {command}")
-        
+        output_buffer = []
+
         def kill_process_tree(pid):
             try:
                 parent = subprocess.Popen(['ps', '-o', 'pid', '--ppid', str(pid), '--noheaders'],
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, _ = parent.communicate()
-                
                 for child_pid in out.split():
                     if child_pid:
                         try:
                             os.kill(int(child_pid), signal.SIGKILL)
                         except ProcessLookupError:
                             pass
-
                 try:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
@@ -51,7 +50,6 @@ class CommandRunner:
 
         master_fd, slave_fd = pty.openpty()
         process = None
-        
         try:
             process = subprocess.Popen(
                 command,
@@ -69,8 +67,8 @@ class CommandRunner:
                     print(f"Command timed out after {timeout} seconds")
                     if process:
                         kill_process_tree(process.pid)
-                    return 1
-
+                    return (1, '') if capture_output else 1
+                    
                 try:
                     ready, _, _ = select.select([master_fd], [], [], 1.0)
                     if ready:
@@ -78,7 +76,10 @@ class CommandRunner:
                             data = os.read(master_fd, 1024).decode('utf-8', 'ignore')
                             if not data:
                                 break
-                            print(data, end='', flush=True)
+                            if capture_output:
+                                output_buffer.append(data)
+                            if not capture_output:  # Only print if not capturing
+                                print(data, end='', flush=True)
                         except OSError as e:
                             if e.errno != errno.EIO:
                                 raise
@@ -93,14 +94,16 @@ class CommandRunner:
 
             if process.poll() is None:
                 kill_process_tree(process.pid)
-                return 1
-
+                return (1, '') if capture_output else 1
+                
+            if capture_output:
+                return process.returncode if process.returncode is not None else 1, ''.join(output_buffer)
             return process.returncode if process.returncode is not None else 1
-
+            
         except Exception as e:
             print(f"Error during command execution: {e}")
             if process:
                 kill_process_tree(process.pid)
-            return 1
+            return (1, '') if capture_output else 1
         finally:
             os.close(master_fd)

@@ -29,8 +29,11 @@ class WineUtils(CommandRunner):
         self.env["WINEPREFIX"] = self.prefix_path
         self.env["WINEDEBUG"] = "-all"
     
-    def run_command(self, command, timeout=60):
-        return super().run_command(command, timeout, self.env)
+    def run_command(self, command, timeout=60, env=None, capture_output=False):
+        if env is None:
+            env = self.env
+        return super().run_command(command, timeout=timeout, env=env, capture_output=capture_output)
+
         
     # hacky gui suppression methods. Allow us to not show windows when we want, like wine updating or install. WINE GUIS   
     # but its fun at least 
@@ -134,11 +137,9 @@ class WineUtils(CommandRunner):
             
             # Kill any existing wine processes and wait
             self.run_command(["wineserver", "-k"], timeout=10)
-            time.sleep(2)
             
             # Do a clean prefix initialization
             self.run_command(["wineboot", "-i"], timeout=30)
-            time.sleep(2)
             
             # Run the MSI installer with a longer timeout
             print("Running MSI installation...")
@@ -224,19 +225,17 @@ class WineUtils(CommandRunner):
     def _get_gecko_version(self):
         """Determine appropriate Gecko version based on Wine version"""
         try:
-            # Get Wine version using existing run_command method
-            wine_version = self.run_command(["wine", "--version"], timeout=10, capture_output=True)
-            if wine_version != 0:
+            # Get Wine version using our new command runner with capture_output
+            returncode, output = self.run_command(
+                ["wine", "--version"], 
+                timeout=10, 
+                capture_output=True
+            )
+            
+            if returncode != 0:
                 print("Could not determine Wine version, defaulting to Gecko 2.47.4")
                 return "2.47.4"
-                
-            version_match = re.search(r'wine-(\d+\.\d+)', wine_version)
-            if not version_match:
-                print("Could not parse Wine version, defaulting to Gecko 2.47.4")
-                return "2.47.4"
-            
-            wine_ver = float(version_match.group(1))
-            
+
             # Version mapping
             gecko_versions = {
                 4.0: "2.47.0",
@@ -245,6 +244,14 @@ class WineUtils(CommandRunner):
                 7.0: "2.47.3",
                 8.0: "2.47.4"  # 8.0 and up
             }
+
+            # Find appropriate version
+            version_match = re.search(r'wine-(\d+\.\d+)', output)
+            if not version_match:
+                print("Could not parse Wine version output, defaulting to Gecko 2.47.4")
+                return "2.47.4"
+            
+            wine_ver = float(version_match.group(1))
             
             # Find appropriate version
             selected_version = "2.47.4"  # Default to latest for 8.0+ or unknown versions
@@ -254,7 +261,7 @@ class WineUtils(CommandRunner):
             
             print(f"Selected Gecko version {selected_version} for Wine {wine_ver}")
             return selected_version
-            
+
         except Exception as e:
             print(f"Error determining Gecko version: {e}, defaulting to 2.47.4")
             return "2.47.4"
@@ -294,18 +301,11 @@ class WineUtils(CommandRunner):
         print("  ✗ No system Gecko installation found")
         return False
 
-    def install_gecko(self):
+    def install_gecko(self, has_system_gecko=None):
         """Download and install Wine Gecko in the prefix"""
-        # First check system package
-        if self.check_system_gecko():
-            print("Found system Gecko package")
-            return True
-
-        # Then verify if prefix already has working Gecko
-        if self._verify_gecko_installation():
-            print("Gecko already properly installed in prefix")
-            return True
-
+        if has_system_gecko is None:
+            has_system_gecko = self.check_system_gecko()
+            
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -320,7 +320,6 @@ class WineUtils(CommandRunner):
         try:
             # Clean slate before install
             self.run_command(["wineserver", "-k"], timeout=10)
-            time.sleep(2)
             
             for gecko_filename in gecko_files:
                 gecko_url = f"https://dl.winehq.org/wine/wine-gecko/{gecko_version}/{gecko_filename}"
@@ -346,10 +345,9 @@ class WineUtils(CommandRunner):
 
                 # Clean up after each installer
                 self.run_command(["wineserver", "-k"], timeout=10)
-                time.sleep(2)
 
             # Final verification
-            if self._verify_gecko_installation():
+            if self._verify_gecko_installation(has_system_gecko):
                 print("Wine Gecko installation completed successfully!")
                 return True
 
@@ -360,30 +358,30 @@ class WineUtils(CommandRunner):
             print(f"Error during Gecko installation: {e}")
             return False
         
-    def _verify_gecko_installation(self):
+    def _verify_gecko_installation(self, has_system_gecko=None):
         """Verify Gecko installation is properly configured"""
-        print("Performing Gecko verification...")
+        # Cache system check result if not provided
+        if has_system_gecko is None:
+            has_system_gecko = self.check_system_gecko()
+            
+        print("\nPerforming Gecko verification...")
         verification_passed = True
-        has_system_gecko = self.check_system_gecko()
 
-        # Only check registry if no system Gecko
-        if not has_system_gecko:
-            print("\nChecking MSHTML registry:")
-            try:
-                result = self.run_command(
-                    ["wine", "reg", "query", "HKLM\\Software\\Wine\\MSHTML"],
-                    timeout=10
-                )
-                print(f"  {'✓' if result == 0 else '✗'} MSHTML registry key {'found' if result == 0 else 'not found'}")
-                if result != 0:
-                    verification_passed = False
-            except Exception as e:
-                print(f"  ✗ Error checking registry: {e}")
+        # Always check registry
+        print("\nChecking MSHTML registry:")
+        try:
+            result = self.run_command(
+                ["wine", "reg", "query", "HKLM\\Software\\Wine\\MSHTML"],
+                timeout=10
+            )
+            print(f"  {'✓' if result == 0 else '✗'} MSHTML registry key {'found' if result == 0 else 'not found'}")
+            if result != 0:
                 verification_passed = False
-        else:
-            print("\nSkipping MSHTML registry check (system Gecko installed)")
+        except Exception as e:
+            print(f"  ✗ Error checking registry: {e}")
+            verification_passed = False
 
-        # For completeness, check critical paths but don't fail if system Gecko
+        # Always check critical paths
         print("\nChecking critical Gecko paths:")
         critical_paths = [
             os.path.join(self.prefix_path, "drive_c/windows/system32/gecko"),
@@ -395,8 +393,7 @@ class WineUtils(CommandRunner):
         for path in critical_paths:
             exists = os.path.exists(path)
             print(f"  {'✓' if exists else '✗'} {path}")
-            # Only fail verification for missing paths if no system package
-            if not exists and not has_system_gecko:
+            if not exists:
                 verification_passed = False
 
         print(f"\nGecko verification {'passed' if verification_passed else 'failed'} all checks")
@@ -439,26 +436,25 @@ class WineUtils(CommandRunner):
                 print("  Fedora: sudo dnf install wine-mono")
                 return False
 
-        # Handle Gecko installation
-        print("\nChecking Gecko configuration:")
+        # Check Gecko - streamlined like DXVK
         has_system_gecko = self.check_system_gecko()
-        
         if has_system_gecko:
-            print("System-wide Wine Gecko installation detected.")
+            print("System-wide Wine Gecko detected.")
+            if not self._verify_gecko_installation(has_system_gecko):
+                print("Configuring system Gecko in prefix...")
+                if not self.install_gecko(has_system_gecko):
+                    print("Warning: Failed to configure system Gecko.")
+                    return False
         else:
             print("No system Wine Gecko detected, checking prefix installation...")
-            
-        # ALWAYS verify - removed the early return here
-        verification_result = self._verify_gecko_installation()
-        if not verification_result:
-            print("Gecko verification failed, attempting installation...")
-            if not self.install_gecko():
-                print("Warning: Failed to install Wine Gecko. HTML rendering might not work properly.")
-                print("You may need to install wine-gecko using your system's package manager:")
-                print("  Debian/Ubuntu: sudo apt install wine-gecko")
-                print("  Arch Linux: sudo pacman -S wine-gecko")
-                print("  Fedora: sudo dnf install wine-gecko")
-                return False
+            if not self._verify_gecko_installation(has_system_gecko):
+                print("Installing Gecko in prefix...")
+                if not self.install_gecko(has_system_gecko):
+                    print("Warning: Failed to install Wine Gecko. You may need to install using your package manager:")
+                    print("  Debian/Ubuntu: sudo apt install wine-gecko")
+                    print("  Arch Linux: sudo pacman -S wine-gecko")
+                    print("  Fedora: sudo dnf install wine-gecko")
+                    return False
 
         if install_dxvk:
             # Check DXVK status once and store the result
@@ -470,25 +466,19 @@ class WineUtils(CommandRunner):
                 print("System-wide DXVK installation detected, configuring prefix...")
                 if not self.install_dxvk(has_system_dxvk):
                     print("Warning: Failed to configure system DXVK.")
-                    print("You may need to install DXVK using your system's package manager:")
-                    print("  Debian/Ubuntu: sudo apt install dxvk")
-                    print("  Arch Linux: yay -S dxvk-bin")
-                    print("  Fedora: sudo dnf install dxvk")
                     return False
             else:
                 print("No DXVK installation found. Installing in prefix...")
                 if not self.install_dxvk(has_system_dxvk):
-                    print("Warning: Failed to install DXVK. Graphics performance might not be optimal.")
-                    print("You may need to install DXVK using your system's package manager:")
+                    print("Warning: Failed to install DXVK. You may need to install using your package manager:")
                     print("  Debian/Ubuntu: sudo apt install dxvk")
                     print("  Arch Linux: yay -S dxvk-bin")
                     print("  Fedora: sudo dnf install dxvk")
                     return False
-        else:
-            print("Skipping DXVK installation as per user request")
 
         print("All components installed successfully!")
         return True
+
     
     def get_system_package_manager(self):
         """Detect the system's package manager"""
