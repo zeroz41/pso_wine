@@ -181,7 +181,6 @@ class WineUtils(CommandRunner):
                     print(f"Installation attempt failed or files not found. Exit code: {exit_code}")
                     # Kill any hanging processes
                     self.run_command(["wineserver", "-k"], timeout=10)
-                    time.sleep(2)
             
             if success:
                 print("Wine Mono installation completed and verified successfully!")
@@ -458,15 +457,9 @@ class WineUtils(CommandRunner):
             print("Running wineboot initialization...")
             if self.run_command(["wineboot", "-u", "-i"], timeout=60) != 0:
                 print("Warning: wineboot initialization may have failed")
-                time.sleep(2)
-                
+                        
             self.run_command(["wineserver", "-k"], timeout=10)
-            time.sleep(1)
-            
             print("SKIPPING WINDOWS 7 CONFIG STEPS, let pso.bat do it")
-            
-            self.run_command(["wineserver", "-k"], timeout=10)
-            time.sleep(2)
 
         # Handle Mono installation
         if self._verify_mono_installation():
@@ -757,7 +750,5 @@ class WineUtils(CommandRunner):
         if os.path.exists(self.prefix_path):
             # First kill any wine processes
             self.run_command(["wineserver", "-k"], timeout=10)
-            time.sleep(1)
-            
             # Then remove the prefix
             shutil.rmtree(self.prefix_path)
