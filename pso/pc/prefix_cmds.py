@@ -65,16 +65,12 @@ class WineUtils(CommandRunner):
         self.enable_gui()
         return self.run_command(command, timeout=None)
 
-
     def check_wine_installed(self):
         """Check if Wine is installed on the system"""
         try:
-            result = subprocess.run(["wine", "--version"], 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=10)
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+            result = self.run_command(["wine", "--version"], timeout=10)
+            return result == 0
+        except Exception:
             return False
 
     def check_system_mono(self):
@@ -86,38 +82,13 @@ class WineUtils(CommandRunner):
         ]
         
         # Check package managers
-        package_managers = {
-            "dpkg": "wine-mono",
-            "pacman": "wine-mono",
-            "rpm": "wine-mono",
-        }
-        
-        for pm, package in package_managers.items():
-            try:
-                if pm == "dpkg":
-                    result = subprocess.run(["dpkg", "-s", package], 
-                                         capture_output=True, 
-                                         timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "pacman":
-                    result = subprocess.run(["pacman", "-Qi", package], 
-                                         capture_output=True, 
-                                         timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "rpm":
-                    result = subprocess.run(["rpm", "-q", package], 
-                                         capture_output=True, 
-                                         timeout=10)
-                    if result.returncode == 0:
-                        return True
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                continue
+        package_name = "wine-mono"  # Same name across distros
+        if self.check_package_installed(package_name):
+            print("Found wine-mono system package installed")
+            return True
 
-        # Check system paths
+        # Check system paths as fallback
         return any(pathlib.Path(path).exists() for path in possible_paths)
-    
 
     def download_file(self, url, destination):
         """Download a file from URL to destination"""
@@ -165,7 +136,6 @@ class WineUtils(CommandRunner):
                 print("Falling back to local installation...")
         
         DEV_MODE = True
-        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -210,7 +180,7 @@ class WineUtils(CommandRunner):
                 else:
                     print(f"Installation attempt failed or files not found. Exit code: {exit_code}")
                     # Kill any hanging processes
-                    subprocess.run(["wineserver", "-k"], env=self.env)
+                    self.run_command(["wineserver", "-k"], timeout=10)
                     time.sleep(2)
             
             if success:
@@ -227,22 +197,9 @@ class WineUtils(CommandRunner):
             return False
 
     def _verify_mono_installation(self):
-      
         """Verify Mono installation is properly configured, whether system or prefix"""
-    # If system mono is available, verify using wine uninstaller
+        # If system mono is available, verify using wine uninstaller
         if self.check_system_mono():
-            #print("Checking for Wine Mono Runtime...")
-            #result = self.run_command(["wine", "uninstaller", "--list"])
-            #if result == 0:
-            #    # We'll see the output in run_command since it uses PTY
-            #    return True
-            #    
-            #print("Wine Mono Runtime check failed")
-            #return False
-
-            #just return true; no extra veri needed or worth it.
-            # can make sure mono works by running dot net mcs compiled application.
-            # note: system wine-mono does not do the same as local wine installed. won't have mono on cmd for example
             return True
         
         # For non-system (MSI) installations, do full verification
@@ -256,16 +213,12 @@ class WineUtils(CommandRunner):
         registry_found = False
         for key in REQUIRED_REGISTRY_KEYS:
             try:
-                reg_result = subprocess.run(
+                result = self.run_command(
                     ["wine", "reg", "query", key],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
                     timeout=10
                 )
-                if reg_result.returncode == 0:
+                if result == 0:
                     print(f"Found registry key: {key}")
-                    print(f"Registry output:\n{reg_result.stdout}")
                     registry_found = True
                     break
             except Exception as e:
@@ -310,56 +263,29 @@ class WineUtils(CommandRunner):
         ]
         
         # Check package managers
-        package_managers = {
-            "dpkg": "wine-gecko",
-            "pacman": "wine-gecko",
-            "rpm": "wine-gecko",
-        }
-        
-        for pm, package in package_managers.items():
-            try:
-                if pm == "dpkg":
-                    result = subprocess.run(["dpkg", "-s", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "pacman":
-                    result = subprocess.run(["pacman", "-Qi", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "rpm":
-                    result = subprocess.run(["rpm", "-q", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                continue
+        package_name = "wine-gecko"  # Same name across distros
+        if self.check_package_installed(package_name):
+            print("Found wine-gecko system package installed")
+            return True
 
-        # Check system paths
+        # Check system paths as fallback
         return any(pathlib.Path(path).exists() for path in possible_paths)
 
     def check_prefix_gecko(self):
         """Check if Wine Gecko is installed in the prefix"""
         try:
-            result = subprocess.run(
+            result = self.run_command(
                 ["wine", "reg", "query", "HKLM\\Software\\Wine\\MSHTML"],
-                env=self.env,
-                capture_output=True,
                 timeout=10
             )
-            return result.returncode == 0
-        except subprocess.TimeoutExpired:
+            return result == 0
+        except Exception:
             return False
 
     def install_gecko(self):
         """Download and install Wine Gecko in the prefix"""
         DEV_MODE = True
         
-        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -409,7 +335,7 @@ class WineUtils(CommandRunner):
                     else:
                         print(f"Installation attempt failed or files not found. Exit code: {exit_code}")
                         # Kill any hanging processes
-                        subprocess.run(["wineserver", "-k"], env=self.env)
+                        self.run_command(["wineserver", "-k"], timeout=10)
                         time.sleep(2)
                 
                 if not success:
@@ -429,7 +355,7 @@ class WineUtils(CommandRunner):
             if os.path.exists(gecko_path):
                 os.remove(gecko_path)
             return False
-
+    
     def _verify_gecko_installation(self):
         """Verify Gecko installation by checking files and registry"""
         # First check if system Gecko is installed
@@ -438,16 +364,12 @@ class WineUtils(CommandRunner):
             
             # Verify basic registry entries when system Gecko is present
             try:
-                reg_result = subprocess.run(
+                result = self.run_command(
                     ["wine", "reg", "query", "HKLM\\Software\\Wine\\MSHTML"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
                     timeout=10
                 )
-                if reg_result.returncode == 0:
+                if result == 0:
                     print("Found Gecko registry entry in MSHTML")
-                    print(f"Registry output:\n{reg_result.stdout}")
                     return True
             except Exception as e:
                 print(f"Error checking registry: {e}")
@@ -488,16 +410,12 @@ class WineUtils(CommandRunner):
         registry_found = False
         for key in registry_keys:
             try:
-                reg_result = subprocess.run(
+                result = self.run_command(
                     ["wine", "reg", "query", key],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
                     timeout=10
                 )
-                if reg_result.returncode == 0:
+                if result == 0:
                     print(f"Found Gecko-related registry entry: {key}")
-                    print(f"Registry output:\n{reg_result.stdout}")
                     registry_found = True
             except Exception as e:
                 print(f"Error checking registry key {key}: {e}")
@@ -509,14 +427,11 @@ class WineUtils(CommandRunner):
         
         # Try to verify mshtml.dll is properly registered
         try:
-            regsvr_result = subprocess.run(
+            result = self.run_command(
                 ["wine", "regsvr32", "/s", "mshtml.dll"],
-                env=self.env,
-                capture_output=True,
-                text=True,
                 timeout=10
             )
-            if regsvr_result.returncode != 0:
+            if result != 0:
                 print("Warning: mshtml.dll registration check failed")
         except Exception as e:
             print(f"Warning: Could not verify mshtml.dll registration: {e}")
@@ -545,12 +460,12 @@ class WineUtils(CommandRunner):
                 print("Warning: wineboot initialization may have failed")
                 time.sleep(2)
                 
-            subprocess.run(["wineserver", "-k"], env=self.env)
+            self.run_command(["wineserver", "-k"], timeout=10)
             time.sleep(1)
             
             print("SKIPPING WINDOWS 7 CONFIG STEPS, let pso.bat do it")
             
-            subprocess.run(["wineserver", "-k"], env=self.env)
+            self.run_command(["wineserver", "-k"], timeout=10)
             time.sleep(2)
 
         # Handle Mono installation
@@ -582,11 +497,14 @@ class WineUtils(CommandRunner):
                 return False
 
         if install_dxvk:
-            if self.check_prefix_dxvk():
+            # Check DXVK status once and store the result
+            has_system_dxvk = self.check_system_dxvk()
+            
+            if self._verify_dxvk_installation(has_system_dxvk):
                 print("DXVK is already installed in the prefix.")
-            elif self.check_system_dxvk():
+            elif has_system_dxvk:
                 print("System-wide DXVK installation detected, configuring prefix...")
-                if not self.install_dxvk():
+                if not self.install_dxvk(has_system_dxvk):
                     print("Warning: Failed to configure system DXVK.")
                     print("You may need to install DXVK using your system's package manager:")
                     print("  Debian/Ubuntu: sudo apt install dxvk")
@@ -595,7 +513,7 @@ class WineUtils(CommandRunner):
                     return False
             else:
                 print("No DXVK installation found. Installing in prefix...")
-                if not self.install_dxvk():
+                if not self.install_dxvk(has_system_dxvk):
                     print("Warning: Failed to install DXVK. Graphics performance might not be optimal.")
                     print("You may need to install DXVK using your system's package manager:")
                     print("  Debian/Ubuntu: sudo apt install dxvk")
@@ -608,6 +526,45 @@ class WineUtils(CommandRunner):
         print("All components installed successfully!")
         return True
     
+    def get_system_package_manager(self):
+        """Detect the system's package manager"""
+        if platform.system() != "Linux":
+            return None
+            
+        # Check for common package managers
+        package_managers = {
+            "pacman": "pacman",
+            "apt": "dpkg",
+            "dnf": "rpm",
+            "yum": "rpm"
+        }
+        
+        for cmd, pm_type in package_managers.items():
+            try:
+                if self.run_command(["which", cmd], timeout=10) == 0:
+                    return pm_type
+            except Exception:
+                continue
+                
+        return None
+    
+    def check_package_installed(self, package_name):
+        """Check if a package is installed using the appropriate package manager"""
+        pm = self.get_system_package_manager()
+        if not pm:
+            return False
+            
+        try:
+            if pm == "pacman":
+                result = self.run_command(["pacman", "-Qi", package_name], timeout=10)
+            elif pm == "dpkg":
+                result = self.run_command(["dpkg", "-s", package_name], timeout=10)
+            elif pm == "rpm":
+                result = self.run_command(["rpm", "-q", package_name], timeout=10)
+            return result == 0
+        except Exception:
+            return False
+    
     def check_system_dxvk(self):
         """Check if DXVK is installed system-wide"""
         possible_paths = [
@@ -617,92 +574,51 @@ class WineUtils(CommandRunner):
         ]
         
         # Check package managers
-        package_managers = {
-            "dpkg": "dxvk",
-            "pacman": "dxvk-bin",
-            "rpm": "dxvk",
-        }
-        
-        for pm, package in package_managers.items():
-            try:
-                if pm == "dpkg":
-                    result = subprocess.run(["dpkg", "-s", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "pacman":
-                    result = subprocess.run(["pacman", "-Qi", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-                elif pm == "rpm":
-                    result = subprocess.run(["rpm", "-q", package], 
-                                        capture_output=True, 
-                                        timeout=10)
-                    if result.returncode == 0:
-                        return True
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                continue
+        package_name = "dxvk-bin" if self.get_system_package_manager() == "pacman" else "dxvk"
+        if self.check_package_installed(package_name):
+            print("Found dxvk system package installed")
+            return True
 
-        # Check system paths
+        # Check system paths as fallback
         return any(pathlib.Path(path).exists() for path in possible_paths)
 
-    def install_dxvk(self):
+    def install_dxvk(self, has_system_dxvk=None):
         """Install DXVK in the prefix. Use system DXVK if available, otherwise download."""
         DEV_MODE = True
-        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
-        use_native_builtin = not self.check_system_dxvk()  # True for MSI install, False for system DXVK. different overrides
-        override_setting = "native,builtin" if use_native_builtin else "native"
-
-        # If system DXVK is available, use system setup script
-        if self.check_system_dxvk():
-            print("System DXVK detected, attempting to configure prefix...")
-            
-            # Common paths for dxvk setup script
+        # No need to check again - use the passed value
+        override_setting = "native" if has_system_dxvk else "native,builtin"
+        
+        if has_system_dxvk:
+            print("Using system DXVK installation...")
             setup_paths = [
                 "/usr/share/dxvk/setup_dxvk.sh",
                 "/usr/bin/setup_dxvk",
                 "/usr/local/bin/setup_dxvk"
             ]
             
-            setup_script = None
-            for path in setup_paths:
-                if os.path.exists(path):
-                    setup_script = path
-                    break
+            setup_script = next((path for path in setup_paths if os.path.exists(path)), None)
             
             if setup_script:
                 print(f"Found DXVK setup script at {setup_script}")
                 try:
-                    # Run the setup script with our prefix
-                    result = subprocess.run(
-                        [setup_script, "install"],
-                        env=self.env,
-                        capture_output=True,
-                        text=True,
-                        timeout=30
-                    )
-                    
-                    if result.returncode == 0:
+                    result = self.run_command([setup_script, "install"], timeout=30)
+                    if result == 0 and self._verify_dxvk_installation(has_system_dxvk):
                         print("System DXVK setup completed successfully!")
                         return True
-                    print(f"DXVK setup script failed with error code {result.returncode}")
+                    print(f"DXVK setup script failed or verification failed")
                 except Exception as e:
                     print(f"Error running DXVK setup script: {e}")
             else:
                 print("No system DXVK setup script found!")
 
             print("System DXVK setup failed, falling back to manual installation...")
-                    
 
-        # Manual installation from GitHub if system DXVK isn't available or setup failed
+        # Manual installation from GitHub
         try:
-            dxvk_version = "2.3"  # Latest stable as of writing
+            dxvk_version = "2.3"
             dxvk_filename = f"dxvk-{dxvk_version}.tar.gz"
             dxvk_url = f"https://github.com/doitsujin/dxvk/releases/download/v{dxvk_version}/{dxvk_filename}"
             dxvk_path = os.path.join(cache_dir, dxvk_filename)
@@ -745,16 +661,15 @@ class WineUtils(CommandRunner):
                             shutil.copy2(dll_path, target_dir)
                             print(f"Installed {dll} to {target_dir}")
 
-            # Set DLL overrides
+            # Set DLL overrides once with correct override_setting
             override_dlls = ["d3d9", "d3d10core", "d3d11", "dxgi", "d3d8"]
             for dll in override_dlls:
-                #d3d9 will get dummy slapped back to native,builtin later regardless. but its intended
                 self.run_command([
                     "wine", "reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides",
                     "/v", dll, "/d", override_setting, "/f"
                 ], timeout=10)
 
-            if self._verify_dxvk_installation():
+            if self._verify_dxvk_installation(has_system_dxvk):
                 print("DXVK installation completed and verified successfully!")
                 return True
                 
@@ -762,61 +677,25 @@ class WineUtils(CommandRunner):
 
         except Exception as e:
             print(f"Manual DXVK installation failed: {e}")
-            print("Attempting fallback installation via winetricks...")
-            
-            # Fallback to winetricks if manual installation fails
-            if self._install_dxvk_winetricks():
-                if self._verify_dxvk_installation():
-                    print("DXVK installation completed successfully via winetricks!")
-                    return True
-                
-            print("All DXVK installation methods failed")
             return False
-
-    def _install_dxvk_winetricks(self):
-        """Fallback method to install DXVK using winetricks"""
-        try:
-            # Check if winetricks is available
-            if shutil.which("winetricks") is None:
-                print("Winetricks not found, cannot attempt fallback installation")
-                return False
-
-            print("Attempting DXVK installation via winetricks...")
-            result = subprocess.run(
-                ["winetricks", "-q", "dxvk"],
-                env=self.env,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
-            )
-            
-            if result.returncode == 0:
-                print("Winetricks DXVK installation completed")
-                return True
-            else:
-                print(f"Winetricks DXVK installation failed: {result.stderr}")
-                return False
-        except Exception as e:
-            print(f"Error during winetricks DXVK installation: {e}")
-            return False
-    
+        
     def check_prefix_dxvk(self):
         """Check if DXVK is installed in the prefix"""
-        #add more custom stuff independent here if needed
+        #useless function. remove later
         return self._verify_dxvk_installation()
 
-    def _verify_dxvk_installation(self):
+    def _verify_dxvk_installation(self, has_system_dxvk):
         """Verify DXVK installation actually installed"""
-        # Check if system DXVK is available
-        is_system_dxvk = self.check_system_dxvk()
-        expected_override = "native" if is_system_dxvk else "native,builtin"
+        # Use the system DXVK check result to determine expected override setting
         
-        if is_system_dxvk:
-            print(f"System DXVK installation detected, checking basic configuration (expecting '{expected_override}' overrides)...")
-        else:
-            print(f"Checking MSI-installed DXVK (expecting '{expected_override}' overrides)...")
-        
-        # check DXVK DLLs in both 32-bit and 64-bit system directories
+        #convoluted but eh
+        if has_system_dxvk is None:
+            has_system_dxvk = self.check_system_dxvk()
+            
+        expected_override = "native" if has_system_dxvk else "native,builtin"
+        print(f"Checking {'system' if has_system_dxvk else 'local'} DXVK installation (expecting '{expected_override}' overrides)...")
+    
+        # Check DXVK DLLs in both 32-bit and 64-bit system directories
         dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
         dll_paths = {
             "system32": os.path.join(self.prefix_path, "drive_c/windows/system32"),
@@ -833,22 +712,21 @@ class WineUtils(CommandRunner):
                 if not exists:
                     all_dlls_present = False
                     
-        if not all_dlls_present and not is_system_dxvk:
+        if not all_dlls_present and not has_system_dxvk:
             print("Missing required DXVK DLLs")
             return False
                     
         # Check DLL overrides in registry
         try:
-            reg_result = self.run_command(
+            result = self.run_command(
                 ["wine", "reg", "query", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides"],
                 timeout=10
             )
             
-            if reg_result == 0:  # run_command returns exit code
+            if result == 0:
                 required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi"}
                 found_dlls = set()
                 
-                # We'll need to run individual queries for each DLL since we can't capture output
                 for dll in required_dlls:
                     dll_result = self.run_command([
                         "wine", "reg", "query", 
@@ -856,7 +734,7 @@ class WineUtils(CommandRunner):
                         "/v", dll
                     ], timeout=10)
                     
-                    if dll_result == 0:  # Successfully found the key
+                    if dll_result == 0:
                         found_dlls.add(dll)
                 
                 missing_dlls = required_dlls - found_dlls
@@ -871,14 +749,14 @@ class WineUtils(CommandRunner):
             print(f"Error checking DLL overrides: {e}")
             return False
 
-        print(f"DXVK verification successful - all files and registry entries present")
+        print("DXVK verification successful - all files and registry entries present")
         return True
 
     def cleanup_prefix(self):
         """Remove the Wine prefix directory"""
         if os.path.exists(self.prefix_path):
             # First kill any wine processes
-            subprocess.run(["wineserver", "-k"], env=self.env)
+            self.run_command(["wineserver", "-k"], timeout=10)
             time.sleep(1)
             
             # Then remove the prefix
