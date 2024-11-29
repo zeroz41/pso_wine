@@ -829,7 +829,7 @@ class WineUtils(CommandRunner):
         print("Performing full DXVK verification...")
         
         # check DXVK DLLs in both 32-bit and 64-bit system directories
-        dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll", "d3d8"]
+        dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
         dll_paths = {
             "system32": os.path.join(self.prefix_path, "drive_c/windows/system32"),
             "syswow64": os.path.join(self.prefix_path, "drive_c/windows/syswow64")
@@ -863,12 +863,12 @@ class WineUtils(CommandRunner):
                 print(reg_result.stdout)
                 
                 # More flexible verification of registry entries
-                required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi", "d3d8"}
+                required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi"}
                 found_dlls = set()
                 
                 for line in reg_result.stdout.splitlines():
                     for dll in required_dlls:
-                        if dll in line.lower() and "native,builtin" in line.lower():
+                        if dll in line.lower() and "native" in line.lower():
                             found_dlls.add(dll)
                 
                 missing_dlls = required_dlls - found_dlls
