@@ -13,6 +13,7 @@ from contextlib import contextmanager
 import tarfile
 from cmd_runner import CommandRunner
 import platform
+import re
 
 # made by zeroz - tj
 
@@ -114,28 +115,7 @@ class WineUtils(CommandRunner):
         return None 
 
     def install_mono(self):
-        """Download and install Wine Mono in the prefix. Use system Mono if available."""
-        # If system Mono is available, ensure it's properly initialized
-        if self.check_system_mono():
-            print("System Mono detected, configuring the prefix for you to use it...")
-            try:
-                # Run wineboot once to initialize system mono
-                # maybe not needed
-                self.run_command(["wineboot", "-u"], timeout=30)
-                print("System mono configured. Rechecking prefix....")
-                
-                # Verify it worked
-                if self._verify_mono_installation():
-                    print("System Mono configuration completed successfully!")
-                    return True
-                    
-                print("System wine mono configuration FAILED")
-                print("System Mono configuration incomplete, falling back to local installation...")
-            except Exception as e:
-                print(f"Error configuring system Mono: {e}")
-                print("Falling back to local installation...")
-        
-        DEV_MODE = True
+        """Download and install Wine Mono in the prefix"""
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -145,54 +125,42 @@ class WineUtils(CommandRunner):
         mono_path = os.path.join(cache_dir, mono_filename)
 
         try:
-            have_valid_installer = os.path.exists(mono_path) and os.path.getsize(mono_path) >= 1024
-
-            if DEV_MODE and have_valid_installer:
-                print(f"Using existing installer at {mono_path}")
-            else:
-                if have_valid_installer:
-                    os.remove(mono_path)
+            # Download if needed
+            if not os.path.exists(mono_path) or os.path.getsize(mono_path) < 1024:
                 if not self.download_file(mono_url, mono_path):
                     return False
 
-            if not os.path.exists(mono_path) or os.path.getsize(mono_path) < 1024:
-                print("Wine Mono installer file is missing or corrupt")
-                return False
-
             print("Installing Wine Mono...")
             
-            # Try installing with more verbose output and different switches
-            install_commands = [
-                ["wine", "msiexec", "/i", mono_path, "/l*v", f"{cache_dir}/mono_install.log"],
-                ["wine", "msiexec", "/i", mono_path, "/qn"],  # Silent install
-                ["wine", "msiexec", "/i", mono_path, "/quiet"],  # Another form of silent install
-            ]
+            # Kill any existing wine processes and wait
+            self.run_command(["wineserver", "-k"], timeout=10)
+            time.sleep(2)
             
-            success = False
-            for cmd in install_commands:
-                print(f"Trying installation command: {' '.join(cmd)}")
-                exit_code = self.run_command(cmd, timeout=None)
+            # Do a clean prefix initialization
+            self.run_command(["wineboot", "-i"], timeout=30)
+            time.sleep(2)
+            
+            # Run the MSI installer with a longer timeout
+            print("Running MSI installation...")
+            result = self.run_command(
+                ["wine", "msiexec", "/i", mono_path],
+                timeout=500 # long timnout
+            )
+            
+            if result != 0:
+                print("MSI installation failed")
+                return False
                 
-                # After each attempt, verify the files exist
-                if self._verify_mono_installation():
-                    success = True
-                    break
-                else:
-                    print(f"Installation attempt failed or files not found. Exit code: {exit_code}")
-                    # Kill any hanging processes
-                    self.run_command(["wineserver", "-k"], timeout=10)
-            
-            if success:
-                print("Wine Mono installation completed and verified successfully!")
+            # Final verification
+            if self._verify_mono_installation():
+                print("Wine Mono installation completed successfully!")
                 return True
             else:
-                print("Wine Mono installation failed verification")
+                print("Wine Mono installation could not be verified")
                 return False
 
         except Exception as e:
             print(f"Error during Mono installation: {e}")
-            if os.path.exists(mono_path):
-                os.remove(mono_path)
             return False
 
     def _verify_mono_installation(self):
@@ -252,23 +220,44 @@ class WineUtils(CommandRunner):
             
         print("Mono verification completed successfully")
         return True
+    
+    def _get_gecko_version(self):
+        """Determine appropriate Gecko version based on Wine version"""
+        try:
+            # Get Wine version using existing run_command method
+            wine_version = self.run_command(["wine", "--version"], timeout=10, capture_output=True)
+            if wine_version != 0:
+                print("Could not determine Wine version, defaulting to Gecko 2.47.4")
+                return "2.47.4"
+                
+            version_match = re.search(r'wine-(\d+\.\d+)', wine_version)
+            if not version_match:
+                print("Could not parse Wine version, defaulting to Gecko 2.47.4")
+                return "2.47.4"
             
-    def check_system_gecko(self):
-        """Check if Wine Gecko is installed system-wide"""
-        possible_paths = [
-            "/usr/share/wine/gecko",
-            "/opt/wine/gecko",
-            "/usr/lib/wine/gecko",
-        ]
-        
-        # Check package managers
-        package_name = "wine-gecko"  # Same name across distros
-        if self.check_package_installed(package_name):
-            print("Found wine-gecko system package installed")
-            return True
-
-        # Check system paths as fallback
-        return any(pathlib.Path(path).exists() for path in possible_paths)
+            wine_ver = float(version_match.group(1))
+            
+            # Version mapping
+            gecko_versions = {
+                4.0: "2.47.0",
+                5.0: "2.47.1",
+                6.0: "2.47.2",
+                7.0: "2.47.3",
+                8.0: "2.47.4"  # 8.0 and up
+            }
+            
+            # Find appropriate version
+            selected_version = "2.47.4"  # Default to latest for 8.0+ or unknown versions
+            for ver in sorted(gecko_versions.keys()):
+                if wine_ver >= ver:
+                    selected_version = gecko_versions[ver]
+            
+            print(f"Selected Gecko version {selected_version} for Wine {wine_ver}")
+            return selected_version
+            
+        except Exception as e:
+            print(f"Error determining Gecko version: {e}, defaulting to 2.47.4")
+            return "2.47.4"
 
     def check_prefix_gecko(self):
         """Check if Wine Gecko is installed in the prefix"""
@@ -280,104 +269,122 @@ class WineUtils(CommandRunner):
             return result == 0
         except Exception:
             return False
+        
+    def check_system_gecko(self):
+        """Check if Wine Gecko is installed system-wide"""
+        possible_paths = [
+            "/usr/share/wine/gecko",
+            "/opt/wine/gecko",
+            "/usr/lib/wine/gecko",
+        ]
+        
+        # Check package managers first
+        package_name = "wine-gecko"  # Same name across distros
+        if self.check_package_installed(package_name):
+            print("System Gecko package verification:")
+            print("  ✓ Found wine-gecko system package installed")
+            return True
+
+        # Check system paths as fallback
+        for path in possible_paths:
+            if pathlib.Path(path).exists():
+                print(f"  ✓ Found Gecko in system path: {path}")
+                return True
+                
+        print("  ✗ No system Gecko installation found")
+        return False
 
     def install_gecko(self):
         """Download and install Wine Gecko in the prefix"""
-        DEV_MODE = True
-        
+        # First check system package
+        if self.check_system_gecko():
+            print("Found system Gecko package")
+            return True
+
+        # Then verify if prefix already has working Gecko
+        if self._verify_gecko_installation():
+            print("Gecko already properly installed in prefix")
+            return True
+
         cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
-        gecko_version = "2.47.4"
+        # Get appropriate Gecko version based on Wine version
+        gecko_version = self._get_gecko_version()
+        
         gecko_files = [
             f"wine-gecko-{gecko_version}-x86.msi",
             f"wine-gecko-{gecko_version}-x86_64.msi"
         ]
         
         try:
+            # Clean slate before install
+            self.run_command(["wineserver", "-k"], timeout=10)
+            time.sleep(2)
+            
             for gecko_filename in gecko_files:
                 gecko_url = f"https://dl.winehq.org/wine/wine-gecko/{gecko_version}/{gecko_filename}"
                 gecko_path = os.path.join(cache_dir, gecko_filename)
                 
+                # Use existing installer if valid
                 have_valid_installer = os.path.exists(gecko_path) and os.path.getsize(gecko_path) >= 1024
-
-                if DEV_MODE and have_valid_installer:
+                if have_valid_installer:
                     print(f"Using existing installer at {gecko_path}")
                 else:
-                    if have_valid_installer:
-                        os.remove(gecko_path)
                     if not self.download_file(gecko_url, gecko_path):
                         return False
 
-                if not os.path.exists(gecko_path) or os.path.getsize(gecko_path) < 1024:
-                    print(f"Wine Gecko installer file {gecko_filename} is missing or corrupt")
-                    return False
-
                 print(f"Installing Wine Gecko ({gecko_filename})...")
+                result = self.run_command(
+                    ["wine", "msiexec", "/i", gecko_path],
+                    timeout=None
+                )
                 
-                # gecko attempts. first should work
-                install_commands = [
-                    ["wine", "msiexec", "/i", gecko_path, "/l*v", f"{cache_dir}/gecko_install_{gecko_filename}.log"],
-                    ["wine", "msiexec", "/i", gecko_path, "/qn"],  # Silent install
-                    ["wine", "msiexec", "/i", gecko_path, "/quiet"],  # Another form of silent install
-                ]
-                
-                success = False
-                for cmd in install_commands:
-                    print(f"Trying installation command: {' '.join(cmd)}")
-                    exit_code = self.run_command(cmd, timeout=None)
-                    
-                    # verify the files exist
-                    if self._verify_gecko_installation():
-                        success = True
-                        break
-                    else:
-                        print(f"Installation attempt failed or files not found. Exit code: {exit_code}")
-                        # Kill any hanging processes
-                        self.run_command(["wineserver", "-k"], timeout=10)
-                        time.sleep(2)
-                
-                if not success:
-                    print(f"All installation attempts for {gecko_filename} failed")
+                if result != 0:
+                    print(f"MSI installation failed for {gecko_filename}")
                     return False
 
-            # Final verification after both installers
+                # Clean up after each installer
+                self.run_command(["wineserver", "-k"], timeout=10)
+                time.sleep(2)
+
+            # Final verification
             if self._verify_gecko_installation():
-                print("Wine Gecko installation completed and verified successfully!")
+                print("Wine Gecko installation completed successfully!")
                 return True
-            else:
-                print("Wine Gecko installation could not be verified")
-                return False
+
+            print("Wine Gecko installation could not be verified")
+            return False
 
         except Exception as e:
             print(f"Error during Gecko installation: {e}")
-            if os.path.exists(gecko_path):
-                os.remove(gecko_path)
             return False
-    
+        
     def _verify_gecko_installation(self):
-        """Verify Gecko installation by checking files and registry"""
-        # First check if system Gecko is installed
-        if self.check_system_gecko():
-            print("System Gecko installation detected, performing basic verification...")
-            
-            # Verify basic registry entries when system Gecko is present
+        """Verify Gecko installation is properly configured"""
+        print("Performing Gecko verification...")
+        verification_passed = True
+        has_system_gecko = self.check_system_gecko()
+
+        # Only check registry if no system Gecko
+        if not has_system_gecko:
+            print("\nChecking MSHTML registry:")
             try:
                 result = self.run_command(
                     ["wine", "reg", "query", "HKLM\\Software\\Wine\\MSHTML"],
                     timeout=10
                 )
-                if result == 0:
-                    print("Found Gecko registry entry in MSHTML")
-                    return True
+                print(f"  {'✓' if result == 0 else '✗'} MSHTML registry key {'found' if result == 0 else 'not found'}")
+                if result != 0:
+                    verification_passed = False
             except Exception as e:
-                print(f"Error checking registry: {e}")
-                return False
-        
-        # If no system Gecko...verify
-        print("Performing full Wine Gecko verification...")
-        
-        # check both 32-bit and 64-bit Gecko
+                print(f"  ✗ Error checking registry: {e}")
+                verification_passed = False
+        else:
+            print("\nSkipping MSHTML registry check (system Gecko installed)")
+
+        # For completeness, check critical paths but don't fail if system Gecko
+        print("\nChecking critical Gecko paths:")
         critical_paths = [
             os.path.join(self.prefix_path, "drive_c/windows/system32/gecko"),
             os.path.join(self.prefix_path, "drive_c/windows/syswow64/gecko"),
@@ -385,57 +392,15 @@ class WineUtils(CommandRunner):
             os.path.join(self.prefix_path, "drive_c/windows/syswow64/mshtml.dll")
         ]
         
-        # gecko files exist?
-        print("Checking Gecko files:")
         for path in critical_paths:
             exists = os.path.exists(path)
             print(f"  {'✓' if exists else '✗'} {path}")
-            
-        # Need at least one gecko directory and one mshtml.dll
-        has_gecko_dir = any(os.path.exists(p) for p in critical_paths if "gecko" in p)
-        has_mshtml = any(os.path.exists(p) for p in critical_paths if "mshtml.dll" in p)
-        
-        if not (has_gecko_dir and has_mshtml):
-            print("Missing required Gecko files")
-            return False
-            
-        # Check registry entries for gecko
-        registry_keys = [
-            "HKLM\\Software\\Wine\\MSHTML",
-            "HKLM\\Software\\Microsoft\\Internet Explorer",
-            "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
-        ]
-        
-        registry_found = False
-        for key in registry_keys:
-            try:
-                result = self.run_command(
-                    ["wine", "reg", "query", key],
-                    timeout=10
-                )
-                if result == 0:
-                    print(f"Found Gecko-related registry entry: {key}")
-                    registry_found = True
-            except Exception as e:
-                print(f"Error checking registry key {key}: {e}")
-                continue
-        
-        if not registry_found:
-            print("No Gecko registry entries found")
-            return False
-        
-        # Try to verify mshtml.dll is properly registered
-        try:
-            result = self.run_command(
-                ["wine", "regsvr32", "/s", "mshtml.dll"],
-                timeout=10
-            )
-            if result != 0:
-                print("Warning: mshtml.dll registration check failed")
-        except Exception as e:
-            print(f"Warning: Could not verify mshtml.dll registration: {e}")
-        
-        return True
+            # Only fail verification for missing paths if no system package
+            if not exists and not has_system_gecko:
+                verification_passed = False
+
+        print(f"\nGecko verification {'passed' if verification_passed else 'failed'} all checks")
+        return verification_passed
 
     def setup_prefix(self, install_dxvk=True):
         """Set up and configure the Wine prefix with all requirements"""
@@ -475,12 +440,18 @@ class WineUtils(CommandRunner):
                 return False
 
         # Handle Gecko installation
-        if self.check_prefix_gecko():
-            print("Wine Gecko is already installed in the prefix.")
-        elif self.check_system_gecko():
+        print("\nChecking Gecko configuration:")
+        has_system_gecko = self.check_system_gecko()
+        
+        if has_system_gecko:
             print("System-wide Wine Gecko installation detected.")
         else:
-            print("No Wine Gecko installation found. Installing in prefix...")
+            print("No system Wine Gecko detected, checking prefix installation...")
+            
+        # ALWAYS verify - removed the early return here
+        verification_result = self._verify_gecko_installation()
+        if not verification_result:
+            print("Gecko verification failed, attempting installation...")
             if not self.install_gecko():
                 print("Warning: Failed to install Wine Gecko. HTML rendering might not work properly.")
                 print("You may need to install wine-gecko using your system's package manager:")
