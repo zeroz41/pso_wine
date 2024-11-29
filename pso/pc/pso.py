@@ -30,10 +30,18 @@ def install_ephinea(install_dxvk=True):
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
 
+<<<<<<< HEAD
     print("Creating desktop shortcuts...")
     shortcut_manager = ShortcutManager()
     shortcut_manager.create_shortcuts()
     shortcut_manager.remove_wine_generated_shortcuts()
+=======
+    if shortcuts:
+        print("Creating desktop shortcuts...")
+        shortcut_manager = ShortcutManager()
+        shortcut_manager.create_shortcuts()
+        shortcut_manager.remove_wine_generated_shortcuts()
+>>>>>>> af6c124bd0a543a804065f7b808a001a945acf16
     
     print("Installation completed successfully!")
 
