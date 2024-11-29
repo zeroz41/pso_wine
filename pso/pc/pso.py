@@ -114,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
     parser.add_argument("--no-dxvk", action="store_true", help="Skip DXVK installation")
     parser.add_argument("--debug-d3d", action='store_true',
-                   help='Force native D3D9 for VM/debug environments. Use if psobb not launching')
+                   help='Force native D3D9 ONLY for debug environments')
 
     args = parser.parse_args()
 
