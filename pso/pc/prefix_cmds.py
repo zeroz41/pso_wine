@@ -12,6 +12,7 @@ import signal
 from contextlib import contextmanager
 import tarfile
 from cmd_runner import CommandRunner
+import platform
 
 # made by zeroz - tj
 
@@ -132,6 +133,14 @@ class WineUtils(CommandRunner):
             if os.path.exists(temp_file):
                 os.remove(temp_file)
             return False
+        
+    def get_cache_dir(self):
+        if platform.system() == "Linux":
+            return os.path.expanduser("~/.cache/pso_wine")
+        elif platform.system() == "Darwin":
+            return os.path.expanduser("~/Library/Caches/pso_wine")
+        
+        return None 
 
     def install_mono(self):
         """Download and install Wine Mono in the prefix. Use system Mono if available."""
@@ -140,6 +149,7 @@ class WineUtils(CommandRunner):
             print("System Mono detected, configuring the prefix for you to use it...")
             try:
                 # Run wineboot once to initialize system mono
+                # maybe not needed
                 self.run_command(["wineboot", "-u"], timeout=30)
                 print("System mono configured. Rechecking prefix....")
                 
@@ -155,7 +165,8 @@ class WineUtils(CommandRunner):
                 print("Falling back to local installation...")
         
         DEV_MODE = True
-        cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
         mono_version = "9.3.0"
@@ -348,7 +359,8 @@ class WineUtils(CommandRunner):
         """Download and install Wine Gecko in the prefix"""
         DEV_MODE = True
         
-        cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
         gecko_version = "2.47.4"
@@ -640,7 +652,8 @@ class WineUtils(CommandRunner):
     def install_dxvk(self):
         """Install DXVK in the prefix. Use system DXVK if available, otherwise download."""
         DEV_MODE = True
-        cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        #cache_dir = os.path.expanduser("~/.cache/pso_wine")
+        cache_dir = self.get_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
 
         # If system DXVK is available, use system setup script
@@ -816,7 +829,7 @@ class WineUtils(CommandRunner):
         print("Performing full DXVK verification...")
         
         # check DXVK DLLs in both 32-bit and 64-bit system directories
-        dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
+        dll_list = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll", "d3d8"]
         dll_paths = {
             "system32": os.path.join(self.prefix_path, "drive_c/windows/system32"),
             "syswow64": os.path.join(self.prefix_path, "drive_c/windows/syswow64")
@@ -850,7 +863,7 @@ class WineUtils(CommandRunner):
                 print(reg_result.stdout)
                 
                 # More flexible verification of registry entries
-                required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi"}
+                required_dlls = {"d3d9", "d3d10core", "d3d11", "dxgi", "d3d8"}
                 found_dlls = set()
                 
                 for line in reg_result.stdout.splitlines():

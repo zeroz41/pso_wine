@@ -77,6 +77,13 @@ def uninstall_ephinea():
         print("Nothing to uninstall - prefix directory doesn't exist.")
 
 def execute_ephinea(launcher=False):
+
+    #must set wine ev before wineutils initialize
+    # could make a set env function in there or something 
+    if args.debug_d3d:
+        print("LAUNCHING GAME WITH NATIVE d3d9 DLL OVERRIDE. DEBUG MODE")
+        os.environ['WINEDLLOVERRIDES'] = "d3d9=n"  ##Niche use case. Debug mode only. Will likely cause dll error on psobb exe launch ;)
+
     wine = WineUtils()
     
     # Check if prefix exists first
@@ -106,6 +113,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--launcher", action="store_true", help="Launch Ephinea with the launcher")
     parser.add_argument("-s", "--shortcuts", action="store_true", help="Install with desktop shortcuts")
     parser.add_argument("--no-dxvk", action="store_true", help="Skip DXVK installation")
+    parser.add_argument("--debug-d3d", action='store_true',
+                   help='Force native D3D9 for VM/debug environments. Use if psobb not launching')
 
     args = parser.parse_args()
 
