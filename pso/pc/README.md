@@ -35,8 +35,8 @@ python pso.py -e                    # Launch PSOBB directly
 python pso.py -l                    # Launch Ephinea Launcher
 
 # Special Cases
-python pso.py -i --skip-dxvk       # Install without DXVK
-python pso.py -e --vm-no-graphics  # Run in VM/no-graphics mode
+python pso.py -i --skip-dxvk-install       # Install without DXVK
+python pso.py -e --directx-runtime         # Run using Wine's DirectX runtime instead of DXVK
 
 # Maintenance
 python pso.py -u                    # Uninstall completely
@@ -51,9 +51,9 @@ python pso.py -u                    # Uninstall completely
 - Clean uninstallation with full prefix cleanup
 
 #### Desktop Integration
-- Desktop launch icons
-- Application menu entries for both launcher and game
-- XDG-compliant desktop integration
+- Desktop launch applications and icons
+- Application menu entries for launcher and game
+- Proper window management via XDG desktop entries and Wine X11 integration
 
 #### Wine Management & Dependencies
 - Uses system Wine packages when available (wine-mono, wine-gecko, dxvk)
@@ -63,9 +63,8 @@ python pso.py -u                    # Uninstall completely
 - Silent dependency handling and environment configuration
 
 #### Graphics & Performance
-- DXVK support for optimal graphics performance
-- VM compatibility mode for systems without GPU access
-- DirectX fallback options
+- DXVK support for optimal graphics
+- DirectX runtime option for compatibility
 
 #### Error Handling & Diagnostics
 - Detailed component verification and state tracking

@@ -839,6 +839,8 @@ class WineUtils(CommandRunner):
                     print("  Arch Linux: yay -S dxvk-bin")
                     print("  Fedora: sudo dnf install dxvk")
                     return False
+        else:
+            print("Skipping DXVK install as requested")
 
         print("All components installed successfully!")
         return True

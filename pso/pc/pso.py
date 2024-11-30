@@ -109,17 +109,17 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall Ephinea")
     parser.add_argument("-e", "--execute", action="store_true", help="Start PSO Blue Burst")
     parser.add_argument("-l", "--launcher", action="store_true", help="Start Ephinea Launcher")
-    parser.add_argument("--vm-no-graphics", action="store_true", 
-                       help="Run in VM compatibility mode without hardware graphics acceleration. Use with -e or -l")
-    parser.add_argument("--skip-dxvk", action="store_true", 
-                       help="Skip DXVK installation when installing (use DirectX instead)")
+    parser.add_argument("--directx-runtime", action="store_true",
+            help="Use Wine's DirectX runtime instead of DXVK. Useful for compatibility issues. Run with -e or -l")
+    parser.add_argument("--skip-dxvk-install", action="store_true", 
+            help="Install using Wine's DirectX runtime instead of DXVK")
 
     args = parser.parse_args()
 
     if args.uninstall:
         uninstall_ephinea()
     elif args.install:
-        install_ephinea(install_dxvk=not args.skip_dxvk)
+        install_ephinea(install_dxvk=not args.skip_dxvk_install)
     elif args.execute or args.launcher:
         execute_ephinea(launcher=args.launcher)
     else:
