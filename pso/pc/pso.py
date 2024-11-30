@@ -76,7 +76,7 @@ def uninstall_ephinea():
 def execute_ephinea(launcher=False):
 
     #must set wine env variables before wineutils initialize
-    if args.vm_no_graphics:
+    if args.directx_runtime:
         print("LAUNCHING IN VM COMPATIBILITY MODE (NO HARDWARE GRAPHICS)")
         os.environ['WINEESYNC'] = "1"
         os.environ['WINEDLLOVERRIDES'] = "dxvk_config=b;d3d9,d3d11,dxgi=b"
