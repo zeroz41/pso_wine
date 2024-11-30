@@ -77,9 +77,14 @@ reg import "%sonicRegFile%"
 echo Registry files installed successfully!
 exit /b
 
+
+::safe to use winecfg, as we suppress gui popups if run through linux
 :configure_wine
+
 echo Setting the Windows version to Windows 7...
 winecfg -v win7
+
+:: set d3d9 override to nb
 echo Setting the dll override "d3d9" to native,builtin...
 reg add "HKCU\Software\Wine\DllOverrides" /v "d3d9" /t REG_SZ /d "native,builtin" /f
 exit /b
