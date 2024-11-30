@@ -112,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--directx-runtime", action="store_true",
             help="Use Wine's DirectX runtime instead of DXVK. Useful for compatibility issues. Run with -e or -l")
     parser.add_argument("--skip-dxvk-install", action="store_true", 
-            help="Install using Wine's DirectX runtime instead of DXVK")
+            help="Install using Wine's DirectX runtime instead of DXVK. Run with -i")
 
     args = parser.parse_args()
 
