@@ -116,6 +116,17 @@ class WineUtils(CommandRunner):
             return os.path.expanduser("~/Library/Caches/pso_wine")
         
         return None 
+    
+    def cleanup_cache(self):
+        #remove any installed cached files if they exist
+        cache_dir = self.get_cache_dir()
+        if os.path.exists(cache_dir):
+            print(f"Cleaning up cache directory: {cache_dir}")
+            try:
+                shutil.rmtree(cache_dir)
+                print("Cache directory removed successfully")
+            except Exception as e:
+                print(f"Warning: Failed to remove cache directory: {e}")
 
     def install_mono(self, has_system_mono=None):
         """Download and install Wine Mono in the prefix"""

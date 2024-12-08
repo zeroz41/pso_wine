@@ -137,4 +137,4 @@ if __name__ == "__main__":
         execute_ephinea(launcher=args.launcher)
     else:
         script_name = os.path.basename(sys.argv[0])
-        print(f"No action specified. Run with `python {script_name} -h` for help")
+        print(f"No action specified. Run with `./{script_name} -h` for help")
