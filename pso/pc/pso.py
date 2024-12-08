@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
 import os
 import sys
 import argparse
+import argcomplete
 from prefix_cmds import WineUtils, WineSetupError
 from shortcut_manager import ShortcutManager
 
@@ -45,6 +47,9 @@ def uninstall_ephinea():
     shortcut_manager.cleanup_shortcuts()
     # in case they are back somehow  
     shortcut_manager.remove_wine_generated_shortcuts()
+
+    print("Cleaning up cached installation files")
+    wine.cleanup_cache()
 
     # Only try to run the uninstaller if the prefix actually exists
     if os.path.exists(wine.prefix_path):
@@ -102,18 +107,26 @@ def execute_ephinea(launcher=False):
     exit_code = wine.execute_game(command)
     print(f"Execution finished with exit code: {exit_code}")
 
+def get_arg_parser():
+    parser = argparse.ArgumentParser(description="Ephinea installer script")
+    parser.add_argument("-i", "--install", action="store_true", 
+                       help="Install Ephinea")
+    parser.add_argument("-u", "--uninstall", action="store_true", 
+                       help="Uninstall Ephinea")
+    parser.add_argument("-e", "--execute", action="store_true", 
+                       help="Start PSO Blue Burst")
+    parser.add_argument("-l", "--launcher", action="store_true", 
+                       help="Start Ephinea Launcher")
+    parser.add_argument("--directx-runtime", action="store_true",
+                       help="Use Wine's DirectX runtime instead of DXVK. Useful for compatibility issues. Run with -e or -l")
+    parser.add_argument("--skip-dxvk-install", action="store_true",
+                       help="Install using Wine's DirectX runtime instead of DXVK. Run with -i")
+    return parser
+
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description="Ephinea installer script")
-    parser.add_argument("-i", "--install", action="store_true", help="Install Ephinea")
-    parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall Ephinea")
-    parser.add_argument("-e", "--execute", action="store_true", help="Start PSO Blue Burst")
-    parser.add_argument("-l", "--launcher", action="store_true", help="Start Ephinea Launcher")
-    parser.add_argument("--directx-runtime", action="store_true",
-            help="Use Wine's DirectX runtime instead of DXVK. Useful for compatibility issues. Run with -e or -l")
-    parser.add_argument("--skip-dxvk-install", action="store_true", 
-            help="Install using Wine's DirectX runtime instead of DXVK. Run with -i")
-
+    parser = get_arg_parser()
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     if args.uninstall:
