@@ -7,19 +7,20 @@ from cmd_runner import CommandRunner
 # made by zeroz, tj
 
 class ShortcutManager(CommandRunner):
-    def __init__(self, prefix_path="~/.local/share/ephinea-prefix"):
-        self.prefix_path = os.path.expanduser(prefix_path)
+    def __init__(self, prefix_path=None):
+        # ALLOW OVERRIDES FROM ENV VARS FOR PACKAGED INSTALLATIONS
+        self.prefix_path = prefix_path or os.environ.get('WINEPREFIX') or os.path.expanduser("~/.local/share/ephinea-prefix")
         self.pso_install_dir = os.path.join(self.prefix_path, "drive_c/EphineaPSO")
+        
+        # Get script paths
         self.pso_script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pso.py")
         self.pso_script_dir = os.path.dirname(self.pso_script_path)
 
-        self.resources_dir = os.path.join(os.path.dirname(self.pso_script_dir), "resources")
+        self.resources_dir = os.environ.get('PSO_RESOURCES_DIR') or os.path.join(os.path.dirname(self.pso_script_dir), "resources")
 
-        self.local_icons_dir = os.path.expanduser("~/.local/share/icons/hicolor")
-
-        #if we were running wine cmds, we could just instantiate the WineUtils
-        #should i make this more generic for getting pso paths from WineUtils? 
-        #not worth it to make fully generic atm.
+        # Skip shortcut creation if we're in system mode
+        if not os.environ.get('PSO_SYSTEM_INSTALL'):
+            self.local_icons_dir = os.path.expanduser("~/.local/share/icons/hicolor")
             
     def _install_linux_icon(self, icon_source, icon_name):
         """Install icon to local icons directory in various sizes"""
@@ -45,6 +46,9 @@ class ShortcutManager(CommandRunner):
         return icon_name
 
     def create_shortcuts(self):
+        # PACKAGED INSTALL
+        if os.environ.get('PSO_SYSTEM_INSTALL'):
+            return
         if platform.system() == "Linux":
             self._create_linux_shortcuts()
         elif platform.system() == "Darwin":
@@ -262,6 +266,9 @@ class ShortcutManager(CommandRunner):
                 f.write(info_plist)
 
     def cleanup_shortcuts(self):
+        # Packaged installation
+        if os.environ.get('PSO_SYSTEM_INSTALL'):
+            return
         if platform.system() == "Linux":
             self._cleanup_linux_shortcuts()
         elif platform.system() == "Darwin":

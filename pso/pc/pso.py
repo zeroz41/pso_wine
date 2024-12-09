@@ -9,7 +9,10 @@ from shortcut_manager import ShortcutManager
 # made by zeroz - tj
 
 def install_ephinea(install_dxvk=True):
-    pso_bat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "pso.bat")
+    # Get script path based on resources dir env var if set
+    script_base = os.environ.get('PSO_RESOURCES_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pso_bat_path = os.path.join(script_base, "scripts", "pso.bat")
+    
     if not os.path.exists(pso_bat_path):
         print(f"Error: pso.bat script not found at {pso_bat_path}")
         sys.exit(1)
@@ -24,18 +27,17 @@ def install_ephinea(install_dxvk=True):
     print("Installing Ephinea...")
     command = ["wine", "cmd", "/c", pso_bat_path, "-i"]
     
-    print(f"Command: {' '.join(command)}")
     exit_code = wine.run_command(command, timeout=None)
-    print(f"Installer finished with exit code: {exit_code}")
-    
     if exit_code != 0:
         print(f"Installation failed with exit code {exit_code}")
         sys.exit(1)
 
-    print("Creating desktop shortcuts...")
-    shortcut_manager = ShortcutManager()
-    shortcut_manager.create_shortcuts()
-    shortcut_manager.remove_wine_generated_shortcuts()
+    # Only create shortcuts if not in system mode
+    if not os.environ.get('PSO_SYSTEM_INSTALL'):
+        print("Creating desktop shortcuts...")
+        shortcut_manager = ShortcutManager()
+        shortcut_manager.create_shortcuts()
+        shortcut_manager.remove_wine_generated_shortcuts()
     
     print("Installation completed successfully!")
 

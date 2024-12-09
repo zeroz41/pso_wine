@@ -22,8 +22,8 @@ class WineSetupError(Exception):
     pass
 
 class WineUtils(CommandRunner):
-    def __init__(self, prefix_path="~/.local/share/ephinea-prefix"):
-        self.prefix_path = os.path.expanduser(prefix_path)
+    def __init__(self):
+        self.prefix_path = os.environ.get('WINEPREFIX') or os.path.expanduser("~/.local/share/ephinea-prefix")
         self.original_env = os.environ.copy()
         self.env = os.environ.copy()
         self.env["WINEPREFIX"] = self.prefix_path
@@ -110,12 +110,16 @@ class WineUtils(CommandRunner):
             return False
         
     def get_cache_dir(self):
+        # Is packaged install?
+        if 'PSO_CACHE_DIR' in os.environ:
+            return os.environ['PSO_CACHE_DIR']
+            
+        # Fall back to defaults
         if platform.system() == "Linux":
             return os.path.expanduser("~/.cache/pso_wine")
         elif platform.system() == "Darwin":
             return os.path.expanduser("~/Library/Caches/pso_wine")
-        
-        return None 
+        return None
     
     def cleanup_cache(self):
         #remove any installed cached files if they exist
@@ -733,11 +737,11 @@ class WineUtils(CommandRunner):
         # Cache system check result if not provided
         if has_system_gecko is None:
             has_system_gecko = self.check_system_gecko()
-            
+                
         print("\nPerforming Gecko verification...")
         verification_passed = True
 
-        # Always check registry
+        # Only check registry if not using system Gecko
         print("\nChecking MSHTML registry:")
         try:
             result = self.run_command(
@@ -745,11 +749,12 @@ class WineUtils(CommandRunner):
                 timeout=10
             )
             print(f"  {'✓' if result == 0 else '✗'} MSHTML registry key {'found' if result == 0 else 'not found'}")
-            if result != 0:
+            if result != 0 and not has_system_gecko:
                 verification_passed = False
         except Exception as e:
             print(f"  ✗ Error checking registry: {e}")
-            verification_passed = False
+            if not has_system_gecko:
+                verification_passed = False
 
         # Always check critical paths
         print("\nChecking critical Gecko paths:")
@@ -759,7 +764,7 @@ class WineUtils(CommandRunner):
             os.path.join(self.prefix_path, "drive_c/windows/system32/mshtml.dll"),
             os.path.join(self.prefix_path, "drive_c/windows/syswow64/mshtml.dll")
         ]
-        
+            
         for path in critical_paths:
             exists = os.path.exists(path)
             print(f"  {'✓' if exists else '✗'} {path}")
