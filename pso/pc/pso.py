@@ -2,7 +2,7 @@
 import os
 import sys
 import argparse
-import argcomplete
+#import argcomplete #taking this away. its an added dependency that will never get enough usage
 from prefix_cmds import WineUtils, WineSetupError
 from shortcut_manager import ShortcutManager
 
@@ -128,7 +128,7 @@ def get_arg_parser():
 if __name__ == "__main__":
     
     parser = get_arg_parser()
-    argcomplete.autocomplete(parser)
+    #argcomplete.autocomplete(parser) #removing need for argcomplete
     args = parser.parse_args()
 
     if args.uninstall:
