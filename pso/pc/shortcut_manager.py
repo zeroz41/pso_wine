@@ -64,7 +64,7 @@ class ShortcutManager(CommandRunner):
     def _remove_linux_wine_shortcuts(self):
         wineicons_dir = os.path.expanduser("~/.local/share/applications/wine/Programs")
         game_folder = os.path.join(wineicons_dir, "Ephinea PSOBB")
-        
+
         # Remove the entire game folder if it exists
         if os.path.exists(game_folder):
             try:
@@ -101,17 +101,18 @@ class ShortcutManager(CommandRunner):
 
             
     def _create_linux_shortcuts(self):
-        desktop_entry_template = """[Desktop Entry]
-        Name={name}
-        Type=Application
-        Exec=env WINEPREFIX="{wine_prefix}" python {script_path} {args}
-        Icon={icon_path}
-        Path={work_path}
-        Categories=Game;
-        StartupWMClass={wmclass}
-        Terminal=false
-        Comment=Ephinea PSO Blue Burst
-        """
+        desktop_entry_template = "".join([
+            "[Desktop Entry]\n",
+            "Name={name}\n",
+            "Type=Application\n",
+            """Exec=env WINEPREFIX="{wine_prefix}" python {script_path} {args}\n""",
+            "Icon={icon_path}\n",
+            "Path={work_path}\n",
+            "Categories=Game;\n",
+            "StartupWMClass={wmclass}\n",
+            "Terminal=false\n",
+            "Comment=Ephinea PSO Blue Burst"])
+
         applications_dir = os.path.expanduser("~/.local/share/applications")
         os.makedirs(applications_dir, exist_ok=True)
 
