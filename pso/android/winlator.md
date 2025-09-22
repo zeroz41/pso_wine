@@ -5,4 +5,5 @@ A reddit user /u/yummaypatrol posted a pretty decent guide recently that uses in
 
 https://www.reddit.com/r/PSO/comments/1lo9jd3/how_to_get_ephinea_running_on_retroid_pocket_mini5/
 
-Note*** Turnip driver is for snapdragon, use vir if on other android cpu.
+Note*** Turnip driver is for snapdragon, use vortek/vir if on other android cpu.
+
