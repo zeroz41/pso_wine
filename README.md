@@ -33,11 +33,12 @@ The platform-specific code (like the Python script for Linux desktop) just serve
 Currently directly supports EphineaPSO
 
 ## Future Plans
-- Add support for Phantasy Star Universe (PSU) and various addons/texture packs
+- Add support for Phantasy Star Universe (PSU) (maybe)
 - Allow easy configurations of separate client installs for other servers
 - Linux ARM support
 - Mac support/testing
 - Offload PC dependency install and verification support into pure internal wine container approach, to allow portability and reusability
+
 
 
 
