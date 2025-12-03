@@ -20,7 +20,7 @@ This repository provides an auto-installer for PSOBB (currently only for the Eph
 10. The game is now ready to play. From now on, launch PSOBB from the Shortcuts page in winlator if you use it. Else you may launch from virtual x11 desktop start menu. Controller support is built-in.
 11. Remember to log in and use an overlay keyboard for the Enter key. Once you've logged in successfully, you won't need to enter your credentials again.
 
-***For detailed Winlator settings and tips, i recommend using this updated guide from reddit user /r/yummaypatrol [Install guide](https://www.reddit.com/r/PSO/comments/1lo9jd3/how_to_get_ephinea_running_on_retroid_pocket_mini5/).
+*** For detailed Winlator settings and tips, i recommend using this updated guide from reddit user /r/yummaypatrol [Install guide](https://www.reddit.com/r/PSO/comments/1lo9jd3/how_to_get_ephinea_running_on_retroid_pocket_mini5/).
 
 
 ## User Params
@@ -46,5 +46,6 @@ DIRECT3D=1
 ```
 
 This configuration sets the game to run in fullscreen mode with a resolution of 1280x720 and uses DirectX 9.
+
 
 
