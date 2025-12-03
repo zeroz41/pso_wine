@@ -14,11 +14,12 @@ This repository provides an auto-installer for PSOBB (currently only for the Eph
    - Hint: For the DirectX mode, set the value to 0 for DirectX 8, 1 for DirectX 9, or 5 for Vulkan. (Vulkan may not work depending on your setup; DirectX 9 is a safe choice.)
    - Important: The game's resolution cannot exceed the dimensions of your container's desktop, either horizontally or vertically, or the game will fail to launch. (This step is not strictly necessary if you can consistently open the launcher, but it has been troublesome for some users.)
 8. Install Mono from the start menu on the bottom left of the Wine container.
-9. Patch the game:
+9. Turn WINEESYNC off in your environment variables if it is defined there.
+10. Patch the game:
    - First, patch PSOBB. Exit the container, go to the Shortcuts menu, launch PSOBB, select "Patch Download," and then close the game.
    - Next, patch the launcher. Start the launcher from the Shortcuts menu. It will prompt you to install a Gecko package; proceed with the installation. The launcher should download updates and open. You can now quit if desired, or browse the settings menu. If you have trouble opening the launcher, try reinitializing Mono and keep launching. You can also try running the executable directly from within the container. Consistency may vary at this point, but the good news is that the launcher only needs to be opened once for patching.
-10. The game is now ready to play. From now on, launch PSOBB from the Shortcuts page in winlator if you use it. Else you may launch from virtual x11 desktop start menu. Controller support is built-in.
-11. Remember to log in and use an overlay keyboard for the Enter key. Once you've logged in successfully, you won't need to enter your credentials again.
+11. The game is now ready to play. From now on, launch PSOBB from the Shortcuts page in winlator if you use it. Else you may launch from virtual x11 desktop start menu. Controller support is built-in.
+12. Remember to log in and use an overlay keyboard for the Enter key. Once you've logged in successfully, you won't need to enter your credentials again.
 
 # For detailed Winlator settings and tips, i recommend using this updated guide from reddit user /r/yummaypatrol [Install guide](https://www.reddit.com/r/PSO/comments/1lo9jd3/how_to_get_ephinea_running_on_retroid_pocket_mini5/).
 
@@ -46,6 +47,7 @@ DIRECT3D=1
 ```
 
 This configuration sets the game to run in fullscreen mode with a resolution of 1280x720 and uses DirectX 9.
+
 
 
 
