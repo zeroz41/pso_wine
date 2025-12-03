@@ -1,7 +1,7 @@
 ## Linux Desktop Wrapper for PSOBB Installation
 *Note: MacOS support is WIP. It has been partially implemented but not tested. If you're a Mac user, feel free to try, but no guarentees*
 
- Installation manager for Phantasy Star Online Blue Burst, providing fully automated, headless installation with zero user interaction required. You won't see any Wine windows or popups during the entire process.
+ Installation manager for Phantasy Star Online Blue Burst *Ephinea*, providing fully automated, headless installation with zero user interaction required. You won't see any Wine windows or popups during the entire process.
  Made by zeroz
 
 ### Requirements
