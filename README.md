@@ -1,6 +1,7 @@
 # pso_wine
+#phantasy star online
 
--zeroz 
+-zeroz/tj 
 
 One-command installs for PSO (currently Ephinea Blue Burst!!) on Linux and Android. Depending on your OS, pc or android, navigate to the correct folder for install instructions.
 - PSO specific items in the `pso` folder
@@ -37,5 +38,6 @@ Currently directly supports EphineaPSO
 - Linux ARM support
 - Mac support/testing
 - Offload PC dependency install and verification support into pure internal wine container approach, to allow portability and reusability
+
 
 
