@@ -325,20 +325,20 @@ echo Downloading Ephinea_PSOBB_Installer.exe...
 cd %bin_dir%
 echo Downloading Ephinea Install client to folder %bin_dir%...
 call "%bin_dir%\curl_wrapper.bat" "https://files.pioneer2.net/Ephinea_PSOBB_Installer.exe" "%bin_dir%\Ephinea_PSOBB_Installer.exe"
-
-:checkdownload
-ping -n 6 127.0.0.1 >nul
-if exist "Ephinea_PSOBB_Installer.exe" (
-    set "installer_path=%bin_dir%\Ephinea_PSOBB_Installer.exe"
-    goto download_complete
+if %errorlevel% neq 0 (
+    echo Download failed.
+    cd %current_dir%
+    exit /b 1
 )
-echo Download still in progress...
-goto checkdownload
-goto checkdownload
-goto checkdownload
-goto checkdownload
 
-:download_complete
+if exist "%bin_dir%\Ephinea_PSOBB_Installer.exe" (
+    set "installer_path=%bin_dir%\Ephinea_PSOBB_Installer.exe"
+) else (
+    echo Error: Download reported success but file not found.
+    cd %current_dir%
+    exit /b 1
+)
+
 cd %current_dir%
 echo Installer downloaded successfully.
 echo Installer downloaded successfully. >> "%logFile%"

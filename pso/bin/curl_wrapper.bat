@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 set "url=%~1"
 set "output_file=%~2"
@@ -8,16 +8,40 @@ set "max_retries=3"
 set "retry_count=0"
 
 :download
-echo Downloading %url% to %temp_file%...
-curl.exe -k -L -C - -o "%temp_file%" "%url%"
+set /a "retry_count+=1"
+if exist "%temp_file%" (
+    if !retry_count! gtr 1 (
+        echo Deleting incomplete temp file before retry...
+        del "%temp_file%"
+    )
+)
 
-if %errorlevel% neq 0 (
-    set /a "retry_count+=1"
-    if %retry_count% lss %max_retries% (
-        echo Download failed. Retrying... (Attempt %retry_count% of %max_retries%)
+echo Downloading %url% to %temp_file%... (Attempt !retry_count! of %max_retries%)
+curl.exe -k -L -C - -o "%temp_file%" "%url%"
+set "curl_exit=%errorlevel%"
+
+if !curl_exit! neq 0 (
+    echo curl exited with code !curl_exit!.
+    if !retry_count! lss %max_retries% (
+        echo Retrying...
         goto download
     ) else (
         echo Error: Failed to download the file after %max_retries% attempts.
+        if exist "%temp_file%" del "%temp_file%"
+        exit /b 1
+    )
+)
+
+:: Verify the downloaded file is not suspiciously small (e.g. an error page)
+for %%F in ("%temp_file%") do set "file_size=%%~zF"
+if !file_size! lss 1000 (
+    echo Error: Downloaded file is only !file_size! bytes - likely an error page, not the real file.
+    if exist "%temp_file%" del "%temp_file%"
+    if !retry_count! lss %max_retries% (
+        echo Retrying with fresh download...
+        goto download
+    ) else (
+        echo Error: Failed to download a valid file after %max_retries% attempts.
         exit /b 1
     )
 )
