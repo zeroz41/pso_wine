@@ -7,6 +7,11 @@ if "%1"=="configure_wine" (
     exit /b
 )
 
+if "%1"=="configure_input" (
+    call :configure_input
+    exit /b
+)
+
 if "%1"=="check_admin_privileges" (
     call :check_admin_privileges
     exit /b
@@ -87,6 +92,19 @@ winecfg -v win7
 :: set d3d9 override to nb
 echo Setting the dll override "d3d9" to native,builtin...
 reg add "HKCU\Software\Wine\DllOverrides" /v "d3d9" /t REG_SZ /d "native,builtin" /f
+
+call :configure_input
+exit /b
+
+
+::wine 9+ hidraw backend breaks PSOBB dinput axes (menus auto-scroll). SDL only. linux host only.
+:configure_input
+if not defined PSO_LINUX_HOST (
+    echo Not a linux host install, skipping wine controller backend fix...
+    exit /b
+)
+echo Disabling wine hidraw controller backend (fixes gamepad menu auto-scroll)...
+reg add "HKLM\System\CurrentControlSet\Services\winebus" /v "DisableHidraw" /t REG_DWORD /d 1 /f
 exit /b
 
 

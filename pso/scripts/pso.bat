@@ -134,6 +134,8 @@ if %uninstall% equ 1 (
 )
 
 if %execute% equ 1 (
+    ::apply controller fix on every launch so existing installs pick it up too
+    call "%~dp0wine.bat" configure_input
     echo Running the game... in directory %install_dir%
     ::also log the echo
     echo Running the game... in directory %install_dir% >> "%logFile%"

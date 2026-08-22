@@ -24,6 +24,8 @@ class WineSetupError(Exception):
 class WineUtils(CommandRunner):
     def __init__(self):
         self.prefix_path = os.environ.get('WINEPREFIX') or os.path.expanduser("~/.local/share/ephinea-prefix")
+        # gates linux-only tweaks in the batch scripts
+        os.environ["PSO_LINUX_HOST"] = "1"
         self.original_env = os.environ.copy()
         self.env = os.environ.copy()
         self.env["WINEPREFIX"] = self.prefix_path
