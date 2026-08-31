@@ -7,3 +7,5 @@ pso/bin/ephinea_installer_temp.exe
 *.tmp
 pso/pc/reticle.txt
 Ephinea_PSOBB_Installer*
+__pycache__/
+pso/pc/advanced_config.txt

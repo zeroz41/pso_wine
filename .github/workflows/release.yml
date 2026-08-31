@@ -1,0 +1,21 @@
+name: release
+
+# auto-create a github release whenever a v* tag is pushed
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: create release from tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          TITLE="${TAG%.0}"  # v0.10.0 -> v0.10, matching existing release naming
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TITLE" --generate-notes
